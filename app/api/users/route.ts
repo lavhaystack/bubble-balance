@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { failure, success } from "@/lib/api/responses";
+import { createClient } from "@/backend/supabase/server";
+import { failure, success } from "@/backend/api/responses";
 import { hasEnvVars } from "@/lib/utils";
 
 export async function GET() {

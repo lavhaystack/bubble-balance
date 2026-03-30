@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/backend/supabase/server";
 import {
   createExampleSchema,
   listExamplesQuerySchema,
-} from "@/lib/api/schemas";
-import { failure, fromZodError, success } from "@/lib/api/responses";
+} from "@/backend/api/schemas";
+import { failure, fromZodError, success } from "@/backend/api/responses";
 import { hasEnvVars } from "@/lib/utils";
 import { ZodError } from "zod";
 
