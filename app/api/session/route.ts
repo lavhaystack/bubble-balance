@@ -1,5 +1,5 @@
 import { hasEnvVars } from "@/lib/utils";
-import { success } from "@/lib/api/responses";
+import { success } from "@/backend/api/responses";
 
 export async function GET() {
   return success({
