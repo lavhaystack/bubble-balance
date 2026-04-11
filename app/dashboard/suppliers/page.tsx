@@ -1,8 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, MoreVertical, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 
+import AddProductModal from "./components/AddProductModal";
+import SupplierTable from "./components/SupplierTable";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,14 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   DEFAULT_SUPPLIERS,
   SUPPLIERS_UPDATED_EVENT,
@@ -292,99 +286,12 @@ export default function SuppliersPage() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableHead className="w-[30px]" />
-              <TableHead>Supplier Name</TableHead>
-              <TableHead>Contact Person</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Products</TableHead>
-              <TableHead className="w-[40px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((supplier) => {
-              const isExpanded = Boolean(expandedIds[supplier.id]);
-
-              return (
-                <Fragment key={supplier.id}>
-                  <TableRow>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => toggleExpanded(supplier.id)}
-                        aria-label={isExpanded ? "Collapse supplier" : "Expand supplier"}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="font-semibold text-slate-900">{supplier.name}</TableCell>
-                    <TableCell>{supplier.contactPerson}</TableCell>
-                    <TableCell>{supplier.email}</TableCell>
-                    <TableCell>{supplier.phone}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {supplier.products.length} product{supplier.products.length === 1 ? "" : "s"}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Row actions">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-
-                  {isExpanded && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="bg-slate-50/70 py-4">
-                        <p className="mb-3 text-sm font-semibold text-slate-900">
-                          Products from this Supplier
-                        </p>
-                        {supplier.products.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No products listed yet.</p>
-                        ) : (
-                          <div className="space-y-1">
-                            {supplier.products.map((product) => (
-                              <div
-                                key={`${supplier.id}-${product.name}`}
-                                className="flex items-center justify-between rounded-md px-3 py-2 text-sm"
-                              >
-                                <span>{product.name}</span>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium">P{product.price.toFixed(2)}</span>
-                                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="mt-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openAddProductModal(supplier.id)}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add Product to Supplier
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      <SupplierTable
+        rows={rows}
+        expandedIds={expandedIds}
+        onToggleExpanded={toggleExpanded}
+        onOpenAddProductModal={openAddProductModal}
+      />
 
       <Dialog open={modalOpen} onOpenChange={(open) => !open && handleCloseModal()}>
         <DialogContent className="max-w-[560px]">
@@ -463,87 +370,14 @@ export default function SuppliersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <AddProductModal
         open={productModalOpen}
-        onOpenChange={(open) => !open && handleCloseProductModal()}
-      >
-        <DialogContent className="max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle>Add Supplier Product</DialogTitle>
-            <DialogDescription>
-              Add a product to this supplier so it appears in Inventory add-product dropdown.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="productName">Product Name *</Label>
-              <Input
-                id="productName"
-                name="name"
-                value={productForm.name}
-                onChange={handleProductChange}
-                placeholder="e.g., Lavender Essential Oil Soap"
-                className={productErrors.name ? "border-red-600" : ""}
-              />
-              {productErrors.name && <p className="text-xs text-red-600">{productErrors.name}</p>}
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="productPrice">Price ($) *</Label>
-                <Input
-                  id="productPrice"
-                  name="price"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={productForm.price}
-                  onChange={handleProductChange}
-                  className={productErrors.price ? "border-red-600" : ""}
-                />
-                {productErrors.price && (
-                  <p className="text-xs text-red-600">{productErrors.price}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="productUnit">Unit</Label>
-                <Input
-                  id="productUnit"
-                  name="unit"
-                  value={productForm.unit}
-                  onChange={handleProductChange}
-                  placeholder="bars"
-                />
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="productCategory">Category</Label>
-                <Input
-                  id="productCategory"
-                  name="category"
-                  value={productForm.category}
-                  onChange={handleProductChange}
-                  placeholder="e.g., Essential Oil"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="mt-2 gap-2">
-            <Button variant="outline" onClick={handleCloseProductModal}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddSupplierProduct}
-              className="bg-emerald-700 text-white hover:bg-emerald-800"
-            >
-              Save Product
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        form={productForm}
+        errors={productErrors}
+        onClose={handleCloseProductModal}
+        onChange={handleProductChange}
+        onSave={handleAddSupplierProduct}
+      />
     </section>
   );
 }
