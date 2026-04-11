@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 
 import InventoryTable from "./components/InventoryTable";
@@ -15,6 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  SUPPLIERS_UPDATED_EVENT,
+  getStoredSuppliers,
+  saveSuppliers,
+  type SupplierRecord,
+} from "@/lib/suppliers-store";
 
 export default function Page() {
   const [products, setProducts] = useState<Product[]>([
@@ -90,9 +96,90 @@ export default function Page() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [storedSuppliers, setStoredSuppliers] = useState<SupplierRecord[]>([]);
+
+  useEffect(() => {
+    const syncSuppliers = () => {
+      setStoredSuppliers(getStoredSuppliers());
+    };
+
+    syncSuppliers();
+    window.addEventListener("storage", syncSuppliers);
+    window.addEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
+
+    return () => {
+      window.removeEventListener("storage", syncSuppliers);
+      window.removeEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
+    };
+  }, []);
 
   const addProduct = (product: Product) => {
     setProducts([...products, product]);
+
+    const normalizedSupplierName = product.supplier.trim();
+    const existingSuppliers = getStoredSuppliers();
+
+    const updatedSuppliers = (() => {
+      const existingSupplierIndex = existingSuppliers.findIndex(
+        (supplier) => supplier.name.toLowerCase() === normalizedSupplierName.toLowerCase(),
+      );
+
+      if (existingSupplierIndex === -1) {
+        const generatedId = `${normalizedSupplierName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+
+        const newSupplier: SupplierRecord = {
+          id: generatedId,
+          name: normalizedSupplierName,
+          contactPerson: "TBD",
+          email: "tbd@supplier.com",
+          phone: "TBD",
+          products: [
+            {
+              name: product.name,
+              price: product.price,
+            },
+          ],
+        };
+
+        return [...existingSuppliers, newSupplier];
+      }
+
+      return existingSuppliers.map((supplier, index) => {
+        if (index !== existingSupplierIndex) {
+          return supplier;
+        }
+
+        const productExists = supplier.products.some(
+          (item) => item.name.toLowerCase() === product.name.toLowerCase(),
+        );
+
+        if (productExists) {
+          return {
+            ...supplier,
+            products: supplier.products.map((item) =>
+              item.name.toLowerCase() === product.name.toLowerCase()
+                ? { ...item, price: product.price }
+                : item,
+            ),
+          };
+        }
+
+        return {
+          ...supplier,
+          products: [
+            ...supplier.products,
+            {
+              name: product.name,
+              price: product.price,
+            },
+          ],
+        };
+      });
+    })();
+
+    saveSuppliers(updatedSuppliers);
   };
 
   const updateProduct = (updated: Product) => {
@@ -119,7 +206,18 @@ export default function Page() {
   });
 
   const categories = ["All", ...new Set(products.map(p => p.category))];
-  const suppliers = [...new Set(products.map((p) => p.supplier))];
+  const suppliers = useMemo(() => {
+    return [...new Set([...storedSuppliers.map((supplier) => supplier.name), ...products.map((p) => p.supplier)])].sort(
+      (a, b) => a.localeCompare(b),
+    );
+  }, [products, storedSuppliers]);
+
+  const supplierProductsByName = useMemo(() => {
+    return storedSuppliers.reduce<Record<string, SupplierRecord["products"]>>((acc, supplier) => {
+      acc[supplier.name] = supplier.products;
+      return acc;
+    }, {});
+  }, [storedSuppliers]);
   const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
   return (
@@ -192,6 +290,8 @@ export default function Page() {
         onAdd={addProduct}
         categories={categories.filter((category) => category !== "All")}
         suppliers={suppliers}
+        supplierProductsByName={supplierProductsByName}
+        existingSkus={products.map((product) => product.sku)}
       />
     </div>
   );

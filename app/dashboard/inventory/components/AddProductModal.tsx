@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { SupplierProduct } from "@/lib/suppliers-store";
 
 import type { Product } from "./types";
 
@@ -31,6 +32,8 @@ type AddProductModalProps = {
   onAdd: (product: Product) => void;
   categories: string[];
   suppliers: string[];
+  supplierProductsByName: Record<string, SupplierProduct[]>;
+  existingSkus: string[];
 };
 
 type RequiredField =
@@ -60,11 +63,14 @@ export default function AddProductModal({
   onAdd,
   categories,
   suppliers,
+  supplierProductsByName,
+  existingSkus,
 }: AddProductModalProps) {
   const [form, setForm] = useState({
     ...initialForm,
   });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
+  const [skuTouched, setSkuTouched] = useState(false);
 
   const toDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -79,6 +85,28 @@ export default function AddProductModal({
       delete next[field];
       return next;
     });
+  };
+
+  const generateSku = (name: string) => {
+    const base = name
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.slice(0, 3))
+      .join("")
+      .slice(0, 6) || "PRD";
+
+    const usedSkus = new Set(existingSkus.map((sku) => sku.toUpperCase()));
+    let counter = 1;
+    let candidate = `${base}-${String(counter).padStart(3, "0")}`;
+
+    while (usedSkus.has(candidate)) {
+      counter += 1;
+      candidate = `${base}-${String(counter).padStart(3, "0")}`;
+    }
+
+    return candidate;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,11 +127,16 @@ export default function AddProductModal({
     ) {
       clearError(name);
     }
+
+    if (name === "sku") {
+      setSkuTouched(true);
+    }
   };
 
   const handleClose = () => {
     setForm({ ...initialForm });
     setErrors({});
+    setSkuTouched(false);
     onClose();
   };
 
@@ -145,6 +178,10 @@ export default function AddProductModal({
     ? new Date(`${form.expiration}T00:00:00`)
     : undefined;
 
+  const availableSupplierProducts = form.supplier
+    ? supplierProductsByName[form.supplier] ?? []
+    : [];
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent className="max-w-[680px] p-0">
@@ -162,8 +199,21 @@ export default function AddProductModal({
               <Select
                 value={form.supplier}
                 onValueChange={(value) => {
-                  setForm((prev) => ({ ...prev, supplier: value }));
+                  setForm((prev) => ({
+                    ...prev,
+                    supplier: value,
+                    name: "",
+                    sku: "",
+                    price: 0,
+                    category: "",
+                    unit: "bars",
+                  }));
                   clearError("supplier");
+                  clearError("name");
+                  clearError("price");
+                  clearError("category");
+                  clearError("sku");
+                  setSkuTouched(false);
                 }}
               >
                 <SelectTrigger id="supplier" className={errors.supplier ? "border-red-600" : ""}>
@@ -182,15 +232,50 @@ export default function AddProductModal({
 
             <div className="space-y-2">
               <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                name="name"
+              <Select
                 value={form.name}
-                onChange={handleChange}
-                placeholder={form.supplier ? "Enter product name" : "Select supplier first"}
-                disabled={!form.supplier}
-                className={errors.name ? "border-red-600" : ""}
-              />
+                onValueChange={(value) => {
+                  const selectedProduct = availableSupplierProducts.find(
+                    (product) => product.name === value,
+                  );
+
+                  setForm((prev) => ({
+                    ...prev,
+                    name: value,
+                    sku:
+                      !skuTouched || !prev.sku.trim() ? generateSku(value) : prev.sku,
+                    price: selectedProduct?.price ?? prev.price,
+                    category: selectedProduct?.category ?? prev.category,
+                    unit: selectedProduct?.unit ?? prev.unit,
+                  }));
+                  clearError("name");
+                  clearError("price");
+                  clearError("sku");
+                  if (selectedProduct?.category) {
+                    clearError("category");
+                  }
+                }}
+                disabled={!form.supplier || availableSupplierProducts.length === 0}
+              >
+                <SelectTrigger id="name" className={errors.name ? "border-red-600" : ""}>
+                  <SelectValue
+                    placeholder={
+                      !form.supplier
+                        ? "Select supplier first"
+                        : availableSupplierProducts.length === 0
+                          ? "No products for this supplier"
+                          : "Select existing product"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSupplierProducts.map((product) => (
+                    <SelectItem key={product.name} value={product.name}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
             </div>
 
