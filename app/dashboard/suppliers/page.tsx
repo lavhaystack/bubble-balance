@@ -24,6 +24,10 @@ import {
   type SupplierProduct,
   type SupplierRecord,
 } from "@/lib/suppliers-store";
+import {
+  getStoredInventoryProducts,
+  saveInventoryProducts,
+} from "@/lib/inventory-store";
 
 type SupplierForm = {
   name: string;
@@ -68,6 +72,9 @@ export default function SuppliersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
+  const [editingProductName, setEditingProductName] = useState<string | null>(null);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [pendingRemoveSupplierId, setPendingRemoveSupplierId] = useState<string | null>(null);
   const [form, setForm] = useState<SupplierForm>(initialForm);
   const [productForm, setProductForm] = useState<SupplierProductForm>(initialProductForm);
   const [errors, setErrors] = useState<Partial<Record<keyof SupplierForm, string>>>({});
@@ -115,12 +122,14 @@ export default function SuppliersPage() {
 
   const handleCloseModal = () => {
     clearForm();
+    setEditingSupplierId(null);
     setModalOpen(false);
   };
 
   const handleCloseProductModal = () => {
     clearProductForm();
     setActiveSupplierId(null);
+    setEditingProductName(null);
     setProductModalOpen(false);
   };
 
@@ -141,7 +150,49 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleAddSupplier = () => {
+  const openEditSupplierModal = (supplierId: string) => {
+    const supplier = suppliers.find((item) => item.id === supplierId);
+    if (!supplier) {
+      return;
+    }
+
+    setEditingSupplierId(supplierId);
+    setForm({
+      name: supplier.name,
+      contactPerson: supplier.contactPerson,
+      email: supplier.email,
+      phone: supplier.phone,
+    });
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  const removeSupplier = (supplierId: string) => {
+    const supplierToRemove = suppliers.find((supplier) => supplier.id === supplierId);
+    if (!supplierToRemove) {
+      return;
+    }
+
+    setSuppliers((prev) => {
+      const next = prev.filter((supplier) => supplier.id !== supplierId);
+      saveSuppliers(next);
+      return next;
+    });
+
+    setExpandedIds((prev) => {
+      const next = { ...prev };
+      delete next[supplierId];
+      return next;
+    });
+
+    const inventory = getStoredInventoryProducts();
+    const nextInventory = inventory.filter(
+      (product) => product.supplier.toLowerCase() !== supplierToRemove.name.toLowerCase(),
+    );
+    saveInventoryProducts(nextInventory);
+  };
+
+  const handleSaveSupplier = () => {
     const nextErrors: Partial<Record<keyof SupplierForm, string>> = {};
 
     if (!form.name.trim()) {
@@ -162,33 +213,87 @@ export default function SuppliersPage() {
       return;
     }
 
-    const supplierId = `${form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-    const newSupplier: SupplierRecord = {
-      id: supplierId,
-      name: form.name.trim(),
-      contactPerson: form.contactPerson.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      products: [],
-    };
+    if (editingSupplierId) {
+      const oldSupplier = suppliers.find((supplier) => supplier.id === editingSupplierId);
+      const nextName = form.name.trim();
 
-    setSuppliers((prev) => {
-      const next = [...prev, newSupplier];
-      saveSuppliers(next);
-      return next;
-    });
+      setSuppliers((prev) => {
+        const next = prev.map((supplier) =>
+          supplier.id === editingSupplierId
+            ? {
+                ...supplier,
+                name: nextName,
+                contactPerson: form.contactPerson.trim(),
+                email: form.email.trim(),
+                phone: form.phone.trim(),
+              }
+            : supplier,
+        );
+        saveSuppliers(next);
+        return next;
+      });
 
-    setExpandedIds((prev) => ({
-      ...prev,
-      [supplierId]: true,
-    }));
+      if (oldSupplier && oldSupplier.name !== nextName) {
+        const inventory = getStoredInventoryProducts();
+        const nextInventory = inventory.map((product) =>
+          product.supplier.toLowerCase() === oldSupplier.name.toLowerCase()
+            ? { ...product, supplier: nextName }
+            : product,
+        );
+        saveInventoryProducts(nextInventory);
+      }
+    } else {
+      const supplierId = `${form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+      const newSupplier: SupplierRecord = {
+        id: supplierId,
+        name: form.name.trim(),
+        contactPerson: form.contactPerson.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        products: [],
+      };
+
+      setSuppliers((prev) => {
+        const next = [...prev, newSupplier];
+        saveSuppliers(next);
+        return next;
+      });
+
+      setExpandedIds((prev) => ({
+        ...prev,
+        [supplierId]: true,
+      }));
+    }
 
     handleCloseModal();
   };
 
   const openAddProductModal = (supplierId: string) => {
     setActiveSupplierId(supplierId);
+    setEditingProductName(null);
     clearProductForm();
+    setProductModalOpen(true);
+  };
+
+  const openEditSupplierProductModal = (supplierId: string, productName: string) => {
+    const supplier = suppliers.find((item) => item.id === supplierId);
+    const product = supplier?.products.find(
+      (item) => item.name.toLowerCase() === productName.toLowerCase(),
+    );
+
+    if (!supplier || !product) {
+      return;
+    }
+
+    setActiveSupplierId(supplierId);
+    setEditingProductName(product.name);
+    setProductForm({
+      name: product.name,
+      price: `${product.price}`,
+      category: product.category ?? "",
+      unit: product.unit ?? "bars",
+    });
+    setProductErrors({});
     setProductModalOpen(true);
   };
 
@@ -235,15 +340,20 @@ export default function SuppliersPage() {
       unit: productForm.unit.trim() || undefined,
     };
 
+    const supplierName = suppliers.find((supplier) => supplier.id === activeSupplierId)?.name;
+
     setSuppliers((prev) => {
       const next = prev.map((supplier) => {
         if (supplier.id !== activeSupplierId) {
           return supplier;
         }
 
-        const existingIndex = supplier.products.findIndex(
-          (product) => product.name.toLowerCase() === newSupplierProduct.name.toLowerCase(),
-        );
+        const existingIndex = supplier.products.findIndex((product) => {
+          if (editingProductName) {
+            return product.name.toLowerCase() === editingProductName.toLowerCase();
+          }
+          return product.name.toLowerCase() === newSupplierProduct.name.toLowerCase();
+        });
 
         if (existingIndex >= 0) {
           return {
@@ -264,6 +374,30 @@ export default function SuppliersPage() {
       return next;
     });
 
+    if (supplierName) {
+      const inventory = getStoredInventoryProducts();
+      const nextInventory = inventory.map((product) => {
+        const isMatchBySupplier = product.supplier.toLowerCase() === supplierName.toLowerCase();
+        const isMatchByName = editingProductName
+          ? product.name.toLowerCase() === editingProductName.toLowerCase()
+          : product.name.toLowerCase() === newSupplierProduct.name.toLowerCase();
+
+        if (!isMatchBySupplier || !isMatchByName) {
+          return product;
+        }
+
+        return {
+          ...product,
+          name: newSupplierProduct.name,
+          price: newSupplierProduct.price,
+          category: newSupplierProduct.category ?? product.category,
+          unit: newSupplierProduct.unit ?? product.unit,
+        };
+      });
+
+      saveInventoryProducts(nextInventory);
+    }
+
     handleCloseProductModal();
   };
 
@@ -279,7 +413,11 @@ export default function SuppliersPage() {
 
         <Button
           className="bg-emerald-700 text-white hover:bg-emerald-800"
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setEditingSupplierId(null);
+            clearForm();
+            setModalOpen(true);
+          }}
         >
           <Plus className="h-4 w-4" />
           Add Supplier
@@ -291,12 +429,15 @@ export default function SuppliersPage() {
         expandedIds={expandedIds}
         onToggleExpanded={toggleExpanded}
         onOpenAddProductModal={openAddProductModal}
+        onEditSupplier={openEditSupplierModal}
+        onRequestRemoveSupplier={setPendingRemoveSupplierId}
+        onEditSupplierProduct={openEditSupplierProductModal}
       />
 
       <Dialog open={modalOpen} onOpenChange={(open) => !open && handleCloseModal()}>
         <DialogContent className="max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Add New Supplier</DialogTitle>
+            <DialogTitle>{editingSupplierId ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
             <DialogDescription>Enter the supplier&apos;s information below</DialogDescription>
           </DialogHeader>
 
@@ -361,10 +502,10 @@ export default function SuppliersPage() {
               Cancel
             </Button>
             <Button
-              onClick={handleAddSupplier}
+              onClick={handleSaveSupplier}
               className="bg-emerald-700 text-white hover:bg-emerald-800"
             >
-              Add Supplier
+              {editingSupplierId ? "Save Changes" : "Add Supplier"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -377,7 +518,38 @@ export default function SuppliersPage() {
         onClose={handleCloseProductModal}
         onChange={handleProductChange}
         onSave={handleAddSupplierProduct}
+        title={editingProductName ? "Edit Supplier Product" : "Add Supplier Product"}
+        submitLabel={editingProductName ? "Save Changes" : "Save Product"}
       />
+
+      {pendingRemoveSupplierId && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="w-[380px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">
+              are you sure you want to remove supplier
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingRemoveSupplierId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  removeSupplier(pendingRemoveSupplierId);
+                  setPendingRemoveSupplierId(null);
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

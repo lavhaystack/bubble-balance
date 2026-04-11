@@ -26,6 +26,9 @@ type AddProductModalProps = {
 	onClose: () => void;
 	onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 	onSave: () => void;
+	title?: string;
+	description?: string;
+	submitLabel?: string;
 };
 
 export default function AddProductModal({
@@ -35,15 +38,16 @@ export default function AddProductModal({
 	onClose,
 	onChange,
 	onSave,
+	title = "Add Supplier Product",
+	description = "Add a product to this supplier so it appears in Inventory add-product dropdown.",
+	submitLabel = "Save Product",
 }: AddProductModalProps) {
 	return (
 		<Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
 			<DialogContent className="max-w-[560px]">
 				<DialogHeader>
-					<DialogTitle>Add Supplier Product</DialogTitle>
-					<DialogDescription>
-						Add a product to this supplier so it appears in Inventory add-product dropdown.
-					</DialogDescription>
+					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4">
@@ -105,7 +109,7 @@ export default function AddProductModal({
 						Cancel
 					</Button>
 					<Button onClick={onSave} className="bg-emerald-700 text-white hover:bg-emerald-800">
-						Save Product
+						{submitLabel}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

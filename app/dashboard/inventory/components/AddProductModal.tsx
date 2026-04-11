@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,16 @@ export default function AddProductModal({
     ...initialForm,
   });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (form.supplier && !suppliers.includes(form.supplier)) {
+      handleClose();
+    }
+  }, [form.supplier, open, suppliers]);
 
   const toDateString = (date: Date) => {
     const year = date.getFullYear();

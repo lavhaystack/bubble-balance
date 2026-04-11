@@ -21,76 +21,14 @@ import {
   saveSuppliers,
   type SupplierRecord,
 } from "@/lib/suppliers-store";
+import {
+  INVENTORY_UPDATED_EVENT,
+  getStoredInventoryProducts,
+  saveInventoryProducts,
+} from "@/lib/inventory-store";
 
 export default function Page() {
-  const [products, setProducts] = useState<Product[]>([
-    {
-      name: "Lavender Essential Oil Soap",
-      sku: "LAV-001",
-      category: "Essential Oil",
-      quantity: 45,
-      unit: "bars",
-      price: 8.99,
-      expiration: "2026-08-15",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 15,
-    },
-    {
-      name: "Tea Tree Antibacterial Soap",
-      sku: "TEA-002",
-      category: "Antibacterial",
-      quantity: 12,
-      unit: "bars",
-      price: 9.99,
-      expiration: "2025-04-20",
-      supplier: "Pure Botanicals",
-      reorderLevel: 14,
-    },
-    {
-      name: "Chamomile and Honey Moisturizing Soap",
-      sku: "CHA-003",
-      category: "Moisturizing",
-      quantity: 67,
-      unit: "bars",
-      price: 7.49,
-      expiration: "2026-12-10",
-      supplier: "Organic Essence Ltd.",
-      reorderLevel: 20,
-    },
-    {
-      name: "Activated Charcoal Detox Soap",
-      sku: "CHA-004",
-      category: "Detox",
-      quantity: 8,
-      unit: "bars",
-      price: 10.99,
-      expiration: "2025-05-30",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 12,
-    },
-    {
-      name: "Eucalyptus Mint Soap",
-      sku: "EUC-008",
-      category: "Essential Oil",
-      quantity: 52,
-      unit: "bars",
-      price: 8.99,
-      expiration: "2026-07-18",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 12,
-    },
-    {
-      name: "Sweet Orange Soap",
-      sku: "SWE-009",
-      category: "Essential Oil",
-      quantity: 0,
-      unit: "bars",
-      price: 7.99,
-      expiration: "2025-12-10",
-      supplier: "Pure Botanicals",
-      reorderLevel: 10,
-    },
-  ]);
+  const [products, setProducts] = useState<Product[]>(() => getStoredInventoryProducts());
 
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
@@ -114,8 +52,25 @@ export default function Page() {
     };
   }, []);
 
+  useEffect(() => {
+    const syncInventory = () => {
+      setProducts(getStoredInventoryProducts());
+    };
+
+    syncInventory();
+    window.addEventListener("storage", syncInventory);
+    window.addEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
+
+    return () => {
+      window.removeEventListener("storage", syncInventory);
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
+    };
+  }, []);
+
   const addProduct = (product: Product) => {
-    setProducts([...products, product]);
+    const nextProducts = [...products, product];
+    setProducts(nextProducts);
+    saveInventoryProducts(nextProducts);
 
     const normalizedSupplierName = product.supplier.trim();
     const existingSuppliers = getStoredSuppliers();
@@ -184,7 +139,9 @@ export default function Page() {
   };
 
   const deleteProduct = (sku: string) => {
-    setProducts(products.filter((p) => p.sku !== sku));
+    const nextProducts = products.filter((p) => p.sku !== sku);
+    setProducts(nextProducts);
+    saveInventoryProducts(nextProducts);
   };
 
   const requestDeleteProduct = (sku: string) => {

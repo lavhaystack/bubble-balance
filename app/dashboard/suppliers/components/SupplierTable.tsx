@@ -5,6 +5,12 @@ import { ChevronDown, ChevronRight, MoreVertical, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -19,6 +25,9 @@ type SupplierTableProps = {
 	expandedIds: Record<string, boolean>;
 	onToggleExpanded: (supplierId: string) => void;
 	onOpenAddProductModal: (supplierId: string) => void;
+	onEditSupplier: (supplierId: string) => void;
+	onRequestRemoveSupplier: (supplierId: string) => void;
+	onEditSupplierProduct: (supplierId: string, productName: string) => void;
 };
 
 export default function SupplierTable({
@@ -26,6 +35,9 @@ export default function SupplierTable({
 	expandedIds,
 	onToggleExpanded,
 	onOpenAddProductModal,
+	onEditSupplier,
+	onRequestRemoveSupplier,
+	onEditSupplierProduct,
 }: SupplierTableProps) {
 	return (
 		<div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -71,9 +83,24 @@ export default function SupplierTable({
 										{supplier.products.length} product{supplier.products.length === 1 ? "" : "s"}
 									</TableCell>
 									<TableCell>
-										<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Row actions">
-											<MoreVertical className="h-4 w-4" />
-										</Button>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Row actions">
+													<MoreVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-44">
+												<DropdownMenuItem onClick={() => onEditSupplier(supplier.id)}>
+													Edit info
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													className="text-red-600 focus:text-red-600"
+													onClick={() => onRequestRemoveSupplier(supplier.id)}
+												>
+													Remove supplier
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
 									</TableCell>
 								</TableRow>
 
@@ -95,7 +122,25 @@ export default function SupplierTable({
 															<span>{product.name}</span>
 															<div className="flex items-center gap-3">
 																<span className="font-medium">P{product.price.toFixed(2)}</span>
-																<MoreVertical className="h-4 w-4 text-muted-foreground" />
+																<DropdownMenu>
+																	<DropdownMenuTrigger asChild>
+																		<Button
+																			variant="ghost"
+																			size="icon"
+																			className="h-7 w-7"
+																			aria-label="Product actions"
+																		>
+																			<MoreVertical className="h-4 w-4 text-muted-foreground" />
+																		</Button>
+																	</DropdownMenuTrigger>
+																	<DropdownMenuContent align="end" className="w-40">
+																		<DropdownMenuItem
+																			onClick={() => onEditSupplierProduct(supplier.id, product.name)}
+																		>
+																			Edit product
+																		</DropdownMenuItem>
+																	</DropdownMenuContent>
+																</DropdownMenu>
 															</div>
 														</div>
 													))}
