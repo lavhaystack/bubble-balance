@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -17,9 +17,14 @@ const items = [
     icon: Package,
   },
   {
-    label: "Sales",
-    href: "/dashboard/sales",
-    icon: TrendingUp,
+    label: "Suppliers",
+    href: "/dashboard/suppliers",
+    icon: Truck,
+  },
+  {
+    label: "Checkout",
+    href: "/dashboard/checkout",
+    icon: ShoppingCart,
   },
 ];
 
