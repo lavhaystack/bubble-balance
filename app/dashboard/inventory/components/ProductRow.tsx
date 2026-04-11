@@ -1,4 +1,4 @@
-import { CalendarDays, MoreVertical, PackageMinus, PackagePlus, Trash2 } from "lucide-react";
+import { CalendarDays, MoreVertical, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { getStockStatus, type Product } from "./types";
 
 type ProductRowProps = {
   product: Product;
-  updateProduct: (product: Product) => void;
   deleteProduct: (sku: string) => void;
 };
 
@@ -46,7 +45,6 @@ const statusStyles: Record<string, string> = {
 
 export default function ProductRow({
   product,
-  updateProduct,
   deleteProduct,
 }: ProductRowProps) {
   const status = getStockStatus(product);
@@ -87,28 +85,6 @@ export default function ProductRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onClick={() =>
-                updateProduct({
-                  ...product,
-                  quantity: Math.max(product.reorderLevel + 1, product.quantity),
-                })
-              }
-            >
-              <PackagePlus className="h-4 w-4" />
-              Mark In Stock
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                updateProduct({
-                  ...product,
-                  quantity: Math.min(product.quantity, product.reorderLevel),
-                })
-              }
-            >
-              <PackageMinus className="h-4 w-4" />
-              Mark Low Stock
-            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600 focus:text-red-600"
               onClick={() => deleteProduct(product.sku)}

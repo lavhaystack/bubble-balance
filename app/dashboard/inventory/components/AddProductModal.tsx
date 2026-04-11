@@ -39,7 +39,6 @@ type AddProductModalProps = {
 type RequiredField =
   | "supplier"
   | "name"
-  | "sku"
   | "category"
   | "quantity"
   | "reorderLevel"
@@ -70,7 +69,6 @@ export default function AddProductModal({
     ...initialForm,
   });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
-  const [skuTouched, setSkuTouched] = useState(false);
 
   const toDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -120,23 +118,17 @@ export default function AddProductModal({
 
     if (
       name === "name" ||
-      name === "sku" ||
       name === "quantity" ||
       name === "reorderLevel" ||
       name === "price"
     ) {
       clearError(name);
     }
-
-    if (name === "sku") {
-      setSkuTouched(true);
-    }
   };
 
   const handleClose = () => {
     setForm({ ...initialForm });
     setErrors({});
-    setSkuTouched(false);
     onClose();
   };
 
@@ -148,9 +140,6 @@ export default function AddProductModal({
     }
     if (!form.name.trim()) {
       nextErrors.name = "this field is required";
-    }
-    if (!form.sku.trim()) {
-      nextErrors.sku = "this field is required";
     }
     if (!form.category) {
       nextErrors.category = "this field is required";
@@ -212,8 +201,6 @@ export default function AddProductModal({
                   clearError("name");
                   clearError("price");
                   clearError("category");
-                  clearError("sku");
-                  setSkuTouched(false);
                 }}
               >
                 <SelectTrigger id="supplier" className={errors.supplier ? "border-red-600" : ""}>
@@ -242,15 +229,13 @@ export default function AddProductModal({
                   setForm((prev) => ({
                     ...prev,
                     name: value,
-                    sku:
-                      !skuTouched || !prev.sku.trim() ? generateSku(value) : prev.sku,
+                    sku: generateSku(value),
                     price: selectedProduct?.price ?? prev.price,
                     category: selectedProduct?.category ?? prev.category,
                     unit: selectedProduct?.unit ?? prev.unit,
                   }));
                   clearError("name");
                   clearError("price");
-                  clearError("sku");
                   if (selectedProduct?.category) {
                     clearError("category");
                   }
@@ -286,11 +271,10 @@ export default function AddProductModal({
                   id="sku"
                   name="sku"
                   value={form.sku}
-                  onChange={handleChange}
-                  placeholder="e.g., LAV-001"
-                  className={errors.sku ? "border-red-600" : ""}
+                  readOnly
+                  placeholder="Auto-generated from supplier product"
+                  className="bg-muted text-muted-foreground"
                 />
-                {errors.sku && <p className="text-xs text-red-600">{errors.sku}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>

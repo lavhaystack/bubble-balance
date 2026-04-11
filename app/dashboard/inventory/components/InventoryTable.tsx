@@ -13,13 +13,11 @@ import {
 
 type InventoryTableProps = {
   products: Product[];
-  updateProduct: (product: Product) => void;
   deleteProduct: (sku: string) => void;
 };
 
 export default function InventoryTable({
   products,
-  updateProduct,
   deleteProduct,
 }: InventoryTableProps) {
   return (
@@ -43,7 +41,6 @@ export default function InventoryTable({
               <ProductRow
                 key={product.sku}
                 product={product}
-                updateProduct={updateProduct}
                 deleteProduct={deleteProduct}
               />
             ))}

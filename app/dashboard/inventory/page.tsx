@@ -97,6 +97,7 @@ export default function Page() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [storedSuppliers, setStoredSuppliers] = useState<SupplierRecord[]>([]);
+  const [pendingDeleteSku, setPendingDeleteSku] = useState<string | null>(null);
 
   useEffect(() => {
     const syncSuppliers = () => {
@@ -182,12 +183,12 @@ export default function Page() {
     saveSuppliers(updatedSuppliers);
   };
 
-  const updateProduct = (updated: Product) => {
-    setProducts(products.map(p => p.sku === updated.sku ? updated : p));
-  };
-
   const deleteProduct = (sku: string) => {
     setProducts(products.filter((p) => p.sku !== sku));
+  };
+
+  const requestDeleteProduct = (sku: string) => {
+    setPendingDeleteSku(sku);
   };
 
   const filteredProducts = products.filter((p) => {
@@ -280,8 +281,7 @@ export default function Page() {
 
       <InventoryTable
         products={filteredProducts}
-        updateProduct={updateProduct}
-        deleteProduct={deleteProduct}
+        deleteProduct={requestDeleteProduct}
       />
 
       <AddProductModal
@@ -293,6 +293,31 @@ export default function Page() {
         supplierProductsByName={supplierProductsByName}
         existingSkus={products.map((product) => product.sku)}
       />
+
+      {pendingDeleteSku && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="w-[370px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">
+              are you sure you want to delete this product
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPendingDeleteSku(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  deleteProduct(pendingDeleteSku);
+                  setPendingDeleteSku(null);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
