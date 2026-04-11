@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { CalendarIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -17,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 import type { Product } from "./types";
 
@@ -27,6 +32,15 @@ type AddProductModalProps = {
   categories: string[];
   suppliers: string[];
 };
+
+type RequiredField =
+  | "supplier"
+  | "name"
+  | "sku"
+  | "category"
+  | "quantity"
+  | "reorderLevel"
+  | "price";
 
 const initialForm: Product = {
   supplier: "",
@@ -50,28 +64,86 @@ export default function AddProductModal({
   const [form, setForm] = useState({
     ...initialForm,
   });
+  const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
+
+  const toDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const clearError = (field: RequiredField) => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
+    const nextValue = type === "number" ? Number(value) : value;
+
     setForm({
       ...form,
-      [name]: type === "number" ? Number(value) : value,
+      [name]: nextValue,
     });
+
+    if (
+      name === "name" ||
+      name === "sku" ||
+      name === "quantity" ||
+      name === "reorderLevel" ||
+      name === "price"
+    ) {
+      clearError(name);
+    }
   };
 
   const handleClose = () => {
     setForm({ ...initialForm });
+    setErrors({});
     onClose();
   };
 
   const handleSubmit = () => {
-    if (!form.supplier || !form.name || !form.sku || !form.category) {
-      alert("Supplier, product name, SKU, and category are required.");
+    const nextErrors: Partial<Record<RequiredField, string>> = {};
+
+    if (!form.supplier) {
+      nextErrors.supplier = "this field is required";
+    }
+    if (!form.name.trim()) {
+      nextErrors.name = "this field is required";
+    }
+    if (!form.sku.trim()) {
+      nextErrors.sku = "this field is required";
+    }
+    if (!form.category) {
+      nextErrors.category = "this field is required";
+    }
+    if (form.quantity <= 0) {
+      nextErrors.quantity = "this field is required";
+    }
+    if (form.reorderLevel < 0) {
+      nextErrors.reorderLevel = "this field is required";
+    }
+    if (form.price <= 0) {
+      nextErrors.price = "this field is required";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
       return;
     }
+
     onAdd(form);
     handleClose();
   };
+
+  const expirationDate = form.expiration
+    ? new Date(`${form.expiration}T00:00:00`)
+    : undefined;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -89,9 +161,12 @@ export default function AddProductModal({
               <Label htmlFor="supplier">Supplier *</Label>
               <Select
                 value={form.supplier}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, supplier: value }))}
+                onValueChange={(value) => {
+                  setForm((prev) => ({ ...prev, supplier: value }));
+                  clearError("supplier");
+                }}
               >
-                <SelectTrigger id="supplier">
+                <SelectTrigger id="supplier" className={errors.supplier ? "border-red-600" : ""}>
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -102,6 +177,7 @@ export default function AddProductModal({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.supplier && <p className="text-xs text-red-600">{errors.supplier}</p>}
             </div>
 
             <div className="space-y-2">
@@ -113,7 +189,9 @@ export default function AddProductModal({
                 onChange={handleChange}
                 placeholder={form.supplier ? "Enter product name" : "Select supplier first"}
                 disabled={!form.supplier}
+                className={errors.name ? "border-red-600" : ""}
               />
+              {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -125,15 +203,20 @@ export default function AddProductModal({
                   value={form.sku}
                   onChange={handleChange}
                   placeholder="e.g., LAV-001"
+                  className={errors.sku ? "border-red-600" : ""}
                 />
+                {errors.sku && <p className="text-xs text-red-600">{errors.sku}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
                 <Select
                   value={form.category}
-                  onValueChange={(value) => setForm((prev) => ({ ...prev, category: value }))}
+                  onValueChange={(value) => {
+                    setForm((prev) => ({ ...prev, category: value }));
+                    clearError("category");
+                  }}
                 >
-                  <SelectTrigger id="category">
+                  <SelectTrigger id="category" className={errors.category ? "border-red-600" : ""}>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -144,6 +227,7 @@ export default function AddProductModal({
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.category && <p className="text-xs text-red-600">{errors.category}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity *</Label>
@@ -154,7 +238,9 @@ export default function AddProductModal({
                   min={0}
                   value={form.quantity}
                   onChange={handleChange}
+                  className={errors.quantity ? "border-red-600" : ""}
                 />
+                {errors.quantity && <p className="text-xs text-red-600">{errors.quantity}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
@@ -169,7 +255,11 @@ export default function AddProductModal({
                   min={0}
                   value={form.reorderLevel}
                   onChange={handleChange}
+                  className={errors.reorderLevel ? "border-red-600" : ""}
                 />
+                {errors.reorderLevel && (
+                  <p className="text-xs text-red-600">{errors.reorderLevel}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="price">Price ($) *</Label>
@@ -181,17 +271,51 @@ export default function AddProductModal({
                   step="0.01"
                   value={form.price}
                   onChange={handleChange}
+                  className={errors.price ? "border-red-600" : ""}
                 />
+                {errors.price && <p className="text-xs text-red-600">{errors.price}</p>}
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="expiration">Expiration Date</Label>
-                <Input
-                  id="expiration"
-                  name="expiration"
-                  type="date"
-                  value={form.expiration}
-                  onChange={handleChange}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="expiration"
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-between text-left font-normal",
+                        !form.expiration && "text-muted-foreground",
+                      )}
+                    >
+                      {form.expiration
+                        ? expirationDate?.toLocaleDateString("en-US")
+                        : "Select expiration date"}
+                      <CalendarIcon className="h-4 w-4 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[320px] overflow-hidden rounded-lg p-0"
+                    align="start"
+                    side="bottom"
+                    sideOffset={8}
+                  >
+                    <Calendar
+                      className="w-full"
+                      mode="single"
+                      selected={expirationDate}
+                      onSelect={(date) => {
+                        if (!date) {
+                          setForm((prev) => ({ ...prev, expiration: "" }));
+                          return;
+                        }
+
+                        setForm((prev) => ({ ...prev, expiration: toDateString(date) }));
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
