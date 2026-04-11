@@ -44,15 +44,21 @@ type RequiredField =
   | "reorderLevel"
   | "price";
 
-const initialForm: Product = {
+type ProductFormState = Omit<Product, "quantity" | "reorderLevel" | "price"> & {
+  quantity: string;
+  reorderLevel: string;
+  price: string;
+};
+
+const initialForm: ProductFormState = {
   supplier: "",
   name: "",
   sku: "",
   category: "",
-  quantity: 0,
+  quantity: "0",
   unit: "bars",
-  reorderLevel: 10,
-  price: 0,
+  reorderLevel: "10",
+  price: "0",
   expiration: "",
 };
 
@@ -65,9 +71,7 @@ export default function AddProductModal({
   supplierProductsByName,
   existingSkus,
 }: AddProductModalProps) {
-  const [form, setForm] = useState({
-    ...initialForm,
-  });
+  const [form, setForm] = useState<ProductFormState>({ ...initialForm });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
 
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function AddProductModal({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    const nextValue = type === "number" ? Number(value) : value;
+    const nextValue = type === "number" ? value : value;
 
     setForm({
       ...form,
@@ -144,6 +148,9 @@ export default function AddProductModal({
 
   const handleSubmit = () => {
     const nextErrors: Partial<Record<RequiredField, string>> = {};
+    const quantity = Number(form.quantity);
+    const reorderLevel = Number(form.reorderLevel);
+    const price = Number(form.price);
 
     if (!form.supplier) {
       nextErrors.supplier = "this field is required";
@@ -154,13 +161,13 @@ export default function AddProductModal({
     if (!form.category) {
       nextErrors.category = "this field is required";
     }
-    if (form.quantity <= 0) {
+    if (!form.quantity.trim() || Number.isNaN(quantity) || quantity <= 0) {
       nextErrors.quantity = "this field is required";
     }
-    if (form.reorderLevel < 0) {
+    if (!form.reorderLevel.trim() || Number.isNaN(reorderLevel) || reorderLevel < 0) {
       nextErrors.reorderLevel = "this field is required";
     }
-    if (form.price <= 0) {
+    if (!form.price.trim() || Number.isNaN(price) || price <= 0) {
       nextErrors.price = "this field is required";
     }
 
@@ -169,7 +176,12 @@ export default function AddProductModal({
       return;
     }
 
-    onAdd(form);
+    onAdd({
+      ...form,
+      quantity,
+      reorderLevel,
+      price,
+    });
     handleClose();
   };
 
@@ -203,7 +215,7 @@ export default function AddProductModal({
                     supplier: value,
                     name: "",
                     sku: "",
-                    price: 0,
+                    price: "0",
                     category: "",
                     unit: "bars",
                   }));
@@ -240,7 +252,7 @@ export default function AddProductModal({
                     ...prev,
                     name: value,
                     sku: generateSku(value),
-                    price: selectedProduct?.price ?? prev.price,
+                    price: selectedProduct ? `${selectedProduct.price}` : prev.price,
                     category: selectedProduct?.category ?? prev.category,
                     unit: selectedProduct?.unit ?? prev.unit,
                   }));
