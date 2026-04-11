@@ -1,6 +1,6 @@
-import { createClient } from "@/backend/supabase/server";
-import { exampleIdSchema, updateExampleSchema } from "@/backend/api/schemas";
-import { failure, fromZodError, success } from "@/backend/api/responses";
+import { createClient } from "@/lib/supabase/server";
+import { exampleIdSchema, updateExampleSchema } from "@/lib/api/schemas";
+import { failure, fromZodError, success } from "@/lib/api/responses";
 import { hasEnvVars } from "@/lib/utils";
 import { ZodError } from "zod";
 
