@@ -1,29 +1,88 @@
 "use client";
 import { useState } from "react";
+import { Plus, Search } from "lucide-react";
+
 import InventoryTable from "./components/InventoryTable";
 import AddProductModal from "./components/AddProductModal";
+import { getStockStatus, type Product } from "./components/types";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Page() {
-  const [products, setProducts] = useState([
+  const [products, setProducts] = useState<Product[]>([
     {
       name: "Lavender Essential Oil Soap",
       sku: "LAV-001",
       category: "Essential Oil",
       quantity: 45,
+      unit: "bars",
       price: 8.99,
-      status: "In Stock",
       expiration: "2026-08-15",
       supplier: "Natural Supplies Co.",
+      reorderLevel: 15,
     },
     {
-      name: "Rose Bath Bomb",
-      sku: "ROS-002",
-      category: "Bath",
-      quantity: 35,
-      price: 5.5,
-      status: "In Stock",
-      expiration: "2026-09-01",
+      name: "Tea Tree Antibacterial Soap",
+      sku: "TEA-002",
+      category: "Antibacterial",
+      quantity: 12,
+      unit: "bars",
+      price: 9.99,
+      expiration: "2025-04-20",
+      supplier: "Pure Botanicals",
+      reorderLevel: 14,
+    },
+    {
+      name: "Chamomile and Honey Moisturizing Soap",
+      sku: "CHA-003",
+      category: "Moisturizing",
+      quantity: 67,
+      unit: "bars",
+      price: 7.49,
+      expiration: "2026-12-10",
+      supplier: "Organic Essence Ltd.",
+      reorderLevel: 20,
+    },
+    {
+      name: "Activated Charcoal Detox Soap",
+      sku: "CHA-004",
+      category: "Detox",
+      quantity: 8,
+      unit: "bars",
+      price: 10.99,
+      expiration: "2025-05-30",
       supplier: "Natural Supplies Co.",
+      reorderLevel: 12,
+    },
+    {
+      name: "Eucalyptus Mint Soap",
+      sku: "EUC-008",
+      category: "Essential Oil",
+      quantity: 52,
+      unit: "bars",
+      price: 8.99,
+      expiration: "2026-07-18",
+      supplier: "Natural Supplies Co.",
+      reorderLevel: 12,
+    },
+    {
+      name: "Sweet Orange Soap",
+      sku: "SWE-009",
+      category: "Essential Oil",
+      quantity: 0,
+      unit: "bars",
+      price: 7.99,
+      expiration: "2025-12-10",
+      supplier: "Pure Botanicals",
+      reorderLevel: 10,
     },
   ]);
 
@@ -32,11 +91,11 @@ export default function Page() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const addProduct = (product: any) => {
+  const addProduct = (product: Product) => {
     setProducts([...products, product]);
   };
 
-  const updateProduct = (updated: any) => {
+  const updateProduct = (updated: Product) => {
     setProducts(products.map(p => p.sku === updated.sku ? updated : p));
   };
 
@@ -44,7 +103,6 @@ export default function Page() {
     setProducts(products.filter((p) => p.sku !== sku));
   };
 
-  // ✅ Filtering logic
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -54,55 +112,72 @@ export default function Page() {
     const matchesCategory =
       categoryFilter === "All" || p.category === categoryFilter;
 
-    const matchesStatus =
-      statusFilter === "All" ||
-      (statusFilter === "Low" && p.quantity <= 35) ||
-      (statusFilter === "In Stock" && p.quantity > 35);
+    const stockStatus = getStockStatus(p);
+    const matchesStatus = statusFilter === "All" || stockStatus === statusFilter;
 
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const categories = ["All", ...new Set(products.map(p => p.category))];
-  const statuses = ["All", "In Stock", "Low"];
+  const suppliers = [...new Set(products.map((p) => p.supplier))];
+  const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-2">Inventory Management</h1>
-      <p className="text-gray-600 mb-4">
+    <div className="space-y-5 p-6">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Inventory Management</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
         {filteredProducts.length} of {products.length} products
       </p>
-      <div className="flex justify-between mb-4 gap-2">
-        <input
-          type="text"
-          placeholder="Search by name, SKU, or supplier..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border px-3 py-2 rounded w-1/3"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border px-3 py-2 rounded"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border px-3 py-2 rounded"
-        >
-          {statuses.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <button
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by name, SKU, or supplier..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[420px]">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button
           onClick={() => setShowModal(true)}
-          className="bg-teal-600 text-white px-4 py-1.5 rounded"
+          className="bg-emerald-700 text-white hover:bg-emerald-800"
         >
-          + Add Product
-        </button>
+          <Plus className="h-4 w-4" />
+          Add Product
+        </Button>
       </div>
 
       <InventoryTable
@@ -111,12 +186,13 @@ export default function Page() {
         deleteProduct={deleteProduct}
       />
 
-      {showModal && (
-        <AddProductModal
-          onClose={() => setShowModal(false)}
-          onAdd={addProduct}
-        />
-      )}
+      <AddProductModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onAdd={addProduct}
+        categories={categories.filter((category) => category !== "All")}
+        suppliers={suppliers}
+      />
     </div>
   );
 }

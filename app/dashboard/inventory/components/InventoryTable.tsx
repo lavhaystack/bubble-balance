@@ -1,32 +1,62 @@
 import ProductRow from "./ProductRow";
+import type { Product } from "./types";
 
-export default function InventoryTable({ products, updateProduct, deleteProduct }: any) {
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+type InventoryTableProps = {
+  products: Product[];
+  updateProduct: (product: Product) => void;
+  deleteProduct: (sku: string) => void;
+};
+
+export default function InventoryTable({
+  products,
+  updateProduct,
+  deleteProduct,
+}: InventoryTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-100 border-b">
-            <th className="px-3 py-2 text-left">Product</th>
-            <th className="px-3 py-2 text-left">SKU</th>
-            <th className="px-3 py-2 text-left">Category</th>
-            <th className="px-3 py-2 text-left">Quantity</th>
-            <th className="px-3 py-2 text-left">Price</th>
-            <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">Expiration</th>
-            <th className="px-3 py-2 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p: any, index: number) => (
-            <ProductRow
-              key={`${p.sku}-${index}`}  
-              product={p}
-              updateProduct={updateProduct}
-              deleteProduct={deleteProduct}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Card className="overflow-hidden border-slate-200 shadow-sm">
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+              <TableHead>Product</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Expiration</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products.map((product) => (
+              <ProductRow
+                key={product.sku}
+                product={product}
+                updateProduct={updateProduct}
+                deleteProduct={deleteProduct}
+              />
+            ))}
+            {products.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="h-20 text-center text-muted-foreground">
+                  No products match your filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

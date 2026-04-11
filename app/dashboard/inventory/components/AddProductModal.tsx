@@ -1,15 +1,54 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export default function AddProductModal({ onClose, onAdd }: any) {
+import type { Product } from "./types";
+
+type AddProductModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (product: Product) => void;
+  categories: string[];
+  suppliers: string[];
+};
+
+const initialForm: Product = {
+  supplier: "",
+  name: "",
+  sku: "",
+  category: "",
+  quantity: 0,
+  unit: "bars",
+  reorderLevel: 10,
+  price: 0,
+  expiration: "",
+};
+
+export default function AddProductModal({
+  open,
+  onClose,
+  onAdd,
+  categories,
+  suppliers,
+}: AddProductModalProps) {
   const [form, setForm] = useState({
-    name: "",
-    sku: "",
-    category: "",
-    quantity: 0,
-    price: 0,
-    expiration: "",
-    supplier: "",
-    status: "In Stock",
+    ...initialForm,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -20,61 +59,156 @@ export default function AddProductModal({ onClose, onAdd }: any) {
     });
   };
 
+  const handleClose = () => {
+    setForm({ ...initialForm });
+    onClose();
+  };
+
   const handleSubmit = () => {
-    if (!form.name || !form.sku) {
-      alert("Name and SKU are required");
+    if (!form.supplier || !form.name || !form.sku || !form.category) {
+      alert("Supplier, product name, SKU, and category are required.");
       return;
     }
-    onAdd(form);   
-    onClose();    
+    onAdd(form);
+    handleClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-xl shadow-lg w-[600px]">
-        <h2 className="text-xl font-bold mb-2">Add New Product</h2>
-        <p className="text-gray-600 mb-4">Fill in product details</p>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
+      <DialogContent className="max-w-[680px] p-0">
+        <div className="p-6">
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>
+              Add a new soap product to your inventory
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4">
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">Product Name*</span>
-            <input name="name" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">SKU*</span>
-            <input name="sku" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">Category*</span>
-            <input name="category" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">Quantity*</span>
-            <input name="quantity" type="number" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">Price*</span>
-            <input name="price" type="number" step="0.01" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm font-semibold">Expiration*</span>
-            <input name="expiration" type="date" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-          <label className="flex flex-col col-span-2">
-            <span className="text-sm font-semibold">Supplier*</span>
-            <input name="supplier" onChange={handleChange} className="border px-2 py-1 rounded"/>
-          </label>
-        </div>
+          <div className="mt-6 grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplier">Supplier *</Label>
+              <Select
+                value={form.supplier}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, supplier: value }))}
+              >
+                <SelectTrigger id="supplier">
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier} value={supplier}>
+                      {supplier}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onClose} className="bg-gray-300 text-black px-4 py-2 rounded">
-            Cancel
-          </button>
-          <button onClick={handleSubmit} className="bg-teal-600 text-white px-4 py-2 rounded">
-            Add Product
-          </button>
+            <div className="space-y-2">
+              <Label htmlFor="name">Product Name *</Label>
+              <Input
+                id="name"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder={form.supplier ? "Enter product name" : "Select supplier first"}
+                disabled={!form.supplier}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sku">SKU *</Label>
+                <Input
+                  id="sku"
+                  name="sku"
+                  value={form.sku}
+                  onChange={handleChange}
+                  placeholder="e.g., LAV-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity *</Label>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  min={0}
+                  value={form.quantity}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit</Label>
+                <Input id="unit" name="unit" value={form.unit} onChange={handleChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reorderLevel">Reorder Level *</Label>
+                <Input
+                  id="reorderLevel"
+                  name="reorderLevel"
+                  type="number"
+                  min={0}
+                  value={form.reorderLevel}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">Price ($) *</Label>
+                <Input
+                  id="price"
+                  name="price"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.price}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="expiration">Expiration Date</Label>
+                <Input
+                  id="expiration"
+                  name="expiration"
+                  type="date"
+                  value={form.expiration}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 gap-2">
+            <Button variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="bg-emerald-700 text-white hover:bg-emerald-800"
+            >
+              Add Product
+            </Button>
+          </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,156 +1,124 @@
-import { useState } from "react";
-import { PencilIcon, TrashIcon, CheckIcon } from "@heroicons/react/24/solid";
+import { CalendarDays, MoreVertical, PackageMinus, PackagePlus, Trash2 } from "lucide-react";
 
-export default function ProductRow({ product, updateProduct, deleteProduct }: any) {
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState(product);
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TableCell, TableRow } from "@/components/ui/table";
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setForm({
-      ...form,
-      [name]: type === "number" ? Number(value) : value,
-    });
-  };
+import { getStockStatus, type Product } from "./types";
 
-  const getStatus = (quantity: number) => {
-    if (quantity <= 35) return "Low";
-    return "In Stock";
-  };
+type ProductRowProps = {
+  product: Product;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (sku: string) => void;
+};
+
+const formatDate = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString("en-US");
+};
+
+const isExpiringSoon = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  const now = new Date();
+  const threshold = new Date();
+  threshold.setDate(now.getDate() + 120);
+  return parsed <= threshold;
+};
+
+const statusStyles: Record<string, string> = {
+  "In Stock": "border-transparent bg-slate-100 text-slate-800",
+  "Low Stock": "border-transparent bg-slate-900 text-slate-50",
+  "Out of Stock": "border-transparent bg-rose-100 text-rose-700",
+};
+
+export default function ProductRow({
+  product,
+  updateProduct,
+  deleteProduct,
+}: ProductRowProps) {
+  const status = getStockStatus(product);
+  const expirationSoon = isExpiringSoon(product.expiration);
 
   return (
-    <tr className="hover:bg-gray-50 border-b">
-      {/* Product Name + Supplier */}
-      <td className="px-10 py-2">
-        {editing ? (
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            className="border px-2 py-5 rounded w-full"
-          />
-        ) : (
-          <div>
-            <span className="text-xl font-bold">{product.name}</span>
-            <div className="text-sm text-gray-600">{product.supplier}</div>
-          </div>
-        )}
-      </td>
-
-      {/* SKU */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="sku"
-            value={form.sku}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-full"
-          />
-        ) : (
-          product.sku
-        )}
-      </td>
-
-      {/* Category */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-full"
-          />
-        ) : (
-          product.category
-        )}
-      </td>
-
-      {/* Quantity */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="quantity"
-            type="number"
-            value={form.quantity}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-20"
-          />
-        ) : (
-          product.quantity
-        )}
-      </td>
-
-      {/* Price */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="price"
-            type="number"
-            value={form.price}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-24"
-          />
-        ) : (
-          `$${Number(product.price).toFixed(2)}`
-        )}
-      </td>
-
-      {/* Status */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="status"
-            value={form.status}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-full"
-          />
-        ) : (
-          getStatus(product.quantity)
-        )}
-      </td>
-
-      {/* Expiration */}
-      <td className="px-3 py-2">
-        {editing ? (
-          <input
-            name="expiration"
-            type="date"
-            value={form.expiration}
-            onChange={handleChange}
-            className="border px-2 py-1 rounded w-full"
-          />
-        ) : (
-          product.expiration
-        )}
-      </td>
-
-      {/* Actions */}
-      <td className="px-3 py-2 flex gap-2 justify-center">
-        {editing ? (
-          <button
-            onClick={() => {
-              updateProduct(form);
-              setEditing(false);
-            }}
-            className="bg-blue-600 text-white w-8 h-8 rounded flex items-center justify-center"
-          >
-            <CheckIcon className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={() => setEditing(true)}
-            className="bg-yellow-500 text-white w-8 h-8 rounded flex items-center justify-center"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          onClick={() => deleteProduct(product.sku)}
-          className="bg-red-600 text-white w-8 h-8 rounded flex items-center justify-center"
+    <TableRow>
+      <TableCell className="w-[320px]">
+        <p className="font-semibold text-slate-900">{product.name}</p>
+        <p className="text-sm text-muted-foreground">{product.supplier}</p>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="font-mono">
+          {product.sku}
+        </Badge>
+      </TableCell>
+      <TableCell>{product.category}</TableCell>
+      <TableCell>
+        {product.quantity} {product.unit}
+      </TableCell>
+      <TableCell>${product.price.toFixed(2)}</TableCell>
+      <TableCell>
+        <Badge className={statusStyles[status]}>{status}</Badge>
+      </TableCell>
+      <TableCell>
+        <span
+          className={expirationSoon ? "inline-flex items-center gap-1 text-rose-600" : "text-slate-700"}
         >
-          <TrashIcon className="h-4 w-4" />
-        </button>
-      </td>
-    </tr>
+          {expirationSoon && <CalendarDays className="h-3.5 w-3.5" />}
+          {formatDate(product.expiration)}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open actions">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() =>
+                updateProduct({
+                  ...product,
+                  quantity: Math.max(product.reorderLevel + 1, product.quantity),
+                })
+              }
+            >
+              <PackagePlus className="h-4 w-4" />
+              Mark In Stock
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                updateProduct({
+                  ...product,
+                  quantity: Math.min(product.quantity, product.reorderLevel),
+                })
+              }
+            >
+              <PackageMinus className="h-4 w-4" />
+              Mark Low Stock
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-red-600 focus:text-red-600"
+              onClick={() => deleteProduct(product.sku)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Product
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   );
 }
