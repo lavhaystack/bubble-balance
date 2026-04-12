@@ -1,11 +1,28 @@
-import type { Preview } from '@storybook/nextjs-vite'
+import type { Preview } from "@storybook/nextjs-vite";
+import { ThemeProvider } from "next-themes";
+import { createElement } from "react";
+
+import "../app/globals.css";
 
 const preview: Preview = {
+  decorators: [
+    (Story) =>
+      createElement(
+        ThemeProvider,
+        {
+          attribute: "class",
+          defaultTheme: "light",
+          enableSystem: false,
+          disableTransitionOnChange: true,
+        },
+        createElement(Story),
+      ),
+  ],
   parameters: {
     controls: {
       matchers: {
-       color: /(background|color)$/i,
-       date: /Date$/i,
+        color: /(background|color)$/i,
+        date: /Date$/i,
       },
     },
 
@@ -13,8 +30,8 @@ const preview: Preview = {
       // 'todo' - show a11y violations in the test UI only
       // 'error' - fail CI on a11y violations
       // 'off' - skip a11y checks entirely
-      test: 'todo'
-    }
+      test: "todo",
+    },
   },
 };
 
