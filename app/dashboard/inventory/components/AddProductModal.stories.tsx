@@ -61,15 +61,3 @@ export const NoSupplierProducts: Story = {
 		existingSkus: ['LAVSOA-001', 'CHADET-001'],
 	},
 };
-
-export const Closed: Story = {
-	args: {
-		open: false,
-		onClose: () => undefined,
-		onAdd: () => undefined,
-		categories: ['Bath & Body', 'Herbal', 'Essential Oils'],
-		suppliers: ['Herbal Co.', 'Organic Essentials', 'Farm Fresh'],
-		supplierProductsByName,
-		existingSkus: [],
-	},
-};

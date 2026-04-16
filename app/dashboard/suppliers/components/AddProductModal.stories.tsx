@@ -64,19 +64,3 @@ export const EditMode: Story = {
 		onSave: () => undefined,
 	},
 };
-
-export const Closed: Story = {
-	args: {
-		open: false,
-		form: {
-			name: "",
-			price: "",
-			category: "",
-			unit: "bars",
-		},
-		errors: {},
-		onClose: () => undefined,
-		onChange: () => undefined,
-		onSave: () => undefined,
-	},
-};
