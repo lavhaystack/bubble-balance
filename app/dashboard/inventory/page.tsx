@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 
 import InventoryTable from "./components/InventoryTable";
@@ -15,92 +15,137 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  SUPPLIERS_UPDATED_EVENT,
+  getStoredSuppliers,
+  saveSuppliers,
+  type SupplierRecord,
+} from "@/lib/suppliers-store";
+import {
+  INVENTORY_UPDATED_EVENT,
+  getStoredInventoryProducts,
+  saveInventoryProducts,
+} from "@/lib/inventory-store";
 
 export default function Page() {
-  const [products, setProducts] = useState<Product[]>([
-    {
-      name: "Lavender Essential Oil Soap",
-      sku: "LAV-001",
-      category: "Essential Oil",
-      quantity: 45,
-      unit: "bars",
-      price: 8.99,
-      expiration: "2026-08-15",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 15,
-    },
-    {
-      name: "Tea Tree Antibacterial Soap",
-      sku: "TEA-002",
-      category: "Antibacterial",
-      quantity: 12,
-      unit: "bars",
-      price: 9.99,
-      expiration: "2025-04-20",
-      supplier: "Pure Botanicals",
-      reorderLevel: 14,
-    },
-    {
-      name: "Chamomile and Honey Moisturizing Soap",
-      sku: "CHA-003",
-      category: "Moisturizing",
-      quantity: 67,
-      unit: "bars",
-      price: 7.49,
-      expiration: "2026-12-10",
-      supplier: "Organic Essence Ltd.",
-      reorderLevel: 20,
-    },
-    {
-      name: "Activated Charcoal Detox Soap",
-      sku: "CHA-004",
-      category: "Detox",
-      quantity: 8,
-      unit: "bars",
-      price: 10.99,
-      expiration: "2025-05-30",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 12,
-    },
-    {
-      name: "Eucalyptus Mint Soap",
-      sku: "EUC-008",
-      category: "Essential Oil",
-      quantity: 52,
-      unit: "bars",
-      price: 8.99,
-      expiration: "2026-07-18",
-      supplier: "Natural Supplies Co.",
-      reorderLevel: 12,
-    },
-    {
-      name: "Sweet Orange Soap",
-      sku: "SWE-009",
-      category: "Essential Oil",
-      quantity: 0,
-      unit: "bars",
-      price: 7.99,
-      expiration: "2025-12-10",
-      supplier: "Pure Botanicals",
-      reorderLevel: 10,
-    },
-  ]);
+  const [products, setProducts] = useState<Product[]>(() => getStoredInventoryProducts());
 
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [storedSuppliers, setStoredSuppliers] = useState<SupplierRecord[]>([]);
+  const [pendingDeleteSku, setPendingDeleteSku] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncSuppliers = () => {
+      setStoredSuppliers(getStoredSuppliers());
+    };
+
+    syncSuppliers();
+    window.addEventListener("storage", syncSuppliers);
+    window.addEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
+
+    return () => {
+      window.removeEventListener("storage", syncSuppliers);
+      window.removeEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncInventory = () => {
+      setProducts(getStoredInventoryProducts());
+    };
+
+    syncInventory();
+    window.addEventListener("storage", syncInventory);
+    window.addEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
+
+    return () => {
+      window.removeEventListener("storage", syncInventory);
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
+    };
+  }, []);
 
   const addProduct = (product: Product) => {
-    setProducts([...products, product]);
-  };
+    const nextProducts = [...products, product];
+    setProducts(nextProducts);
+    saveInventoryProducts(nextProducts);
 
-  const updateProduct = (updated: Product) => {
-    setProducts(products.map(p => p.sku === updated.sku ? updated : p));
+    const normalizedSupplierName = product.supplier.trim();
+    const existingSuppliers = getStoredSuppliers();
+
+    const updatedSuppliers = (() => {
+      const existingSupplierIndex = existingSuppliers.findIndex(
+        (supplier) => supplier.name.toLowerCase() === normalizedSupplierName.toLowerCase(),
+      );
+
+      if (existingSupplierIndex === -1) {
+        const generatedId = `${normalizedSupplierName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+
+        const newSupplier: SupplierRecord = {
+          id: generatedId,
+          name: normalizedSupplierName,
+          contactPerson: "TBD",
+          email: "tbd@supplier.com",
+          phone: "TBD",
+          products: [
+            {
+              name: product.name,
+              price: product.price,
+            },
+          ],
+        };
+
+        return [...existingSuppliers, newSupplier];
+      }
+
+      return existingSuppliers.map((supplier, index) => {
+        if (index !== existingSupplierIndex) {
+          return supplier;
+        }
+
+        const productExists = supplier.products.some(
+          (item) => item.name.toLowerCase() === product.name.toLowerCase(),
+        );
+
+        if (productExists) {
+          return {
+            ...supplier,
+            products: supplier.products.map((item) =>
+              item.name.toLowerCase() === product.name.toLowerCase()
+                ? { ...item, price: product.price }
+                : item,
+            ),
+          };
+        }
+
+        return {
+          ...supplier,
+          products: [
+            ...supplier.products,
+            {
+              name: product.name,
+              price: product.price,
+            },
+          ],
+        };
+      });
+    })();
+
+    saveSuppliers(updatedSuppliers);
   };
 
   const deleteProduct = (sku: string) => {
-    setProducts(products.filter((p) => p.sku !== sku));
+    const nextProducts = products.filter((p) => p.sku !== sku);
+    setProducts(nextProducts);
+    saveInventoryProducts(nextProducts);
+  };
+
+  const requestDeleteProduct = (sku: string) => {
+    setPendingDeleteSku(sku);
   };
 
   const filteredProducts = products.filter((p) => {
@@ -119,7 +164,18 @@ export default function Page() {
   });
 
   const categories = ["All", ...new Set(products.map(p => p.category))];
-  const suppliers = [...new Set(products.map((p) => p.supplier))];
+  const suppliers = useMemo(() => {
+    return [...new Set([...storedSuppliers.map((supplier) => supplier.name), ...products.map((p) => p.supplier)])].sort(
+      (a, b) => a.localeCompare(b),
+    );
+  }, [products, storedSuppliers]);
+
+  const supplierProductsByName = useMemo(() => {
+    return storedSuppliers.reduce<Record<string, SupplierRecord["products"]>>((acc, supplier) => {
+      acc[supplier.name] = supplier.products;
+      return acc;
+    }, {});
+  }, [storedSuppliers]);
   const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
   return (
@@ -182,8 +238,7 @@ export default function Page() {
 
       <InventoryTable
         products={filteredProducts}
-        updateProduct={updateProduct}
-        deleteProduct={deleteProduct}
+        deleteProduct={requestDeleteProduct}
       />
 
       <AddProductModal
@@ -192,7 +247,34 @@ export default function Page() {
         onAdd={addProduct}
         categories={categories.filter((category) => category !== "All")}
         suppliers={suppliers}
+        supplierProductsByName={supplierProductsByName}
+        existingSkus={products.map((product) => product.sku)}
       />
+
+      {pendingDeleteSku && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="w-[370px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">
+              are you sure you want to delete this product
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPendingDeleteSku(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  deleteProduct(pendingDeleteSku);
+                  setPendingDeleteSku(null);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

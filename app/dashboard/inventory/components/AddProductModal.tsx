@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { SupplierProduct } from "@/lib/suppliers-store";
 
 import type { Product } from "./types";
 
@@ -31,26 +32,33 @@ type AddProductModalProps = {
   onAdd: (product: Product) => void;
   categories: string[];
   suppliers: string[];
+  supplierProductsByName: Record<string, SupplierProduct[]>;
+  existingSkus: string[];
 };
 
 type RequiredField =
   | "supplier"
   | "name"
-  | "sku"
   | "category"
   | "quantity"
   | "reorderLevel"
   | "price";
 
-const initialForm: Product = {
+type ProductFormState = Omit<Product, "quantity" | "reorderLevel" | "price"> & {
+  quantity: string;
+  reorderLevel: string;
+  price: string;
+};
+
+const initialForm: ProductFormState = {
   supplier: "",
   name: "",
   sku: "",
   category: "",
-  quantity: 0,
+  quantity: "0",
   unit: "bars",
-  reorderLevel: 10,
-  price: 0,
+  reorderLevel: "10",
+  price: "0",
   expiration: "",
 };
 
@@ -60,11 +68,21 @@ export default function AddProductModal({
   onAdd,
   categories,
   suppliers,
+  supplierProductsByName,
+  existingSkus,
 }: AddProductModalProps) {
-  const [form, setForm] = useState({
-    ...initialForm,
-  });
+  const [form, setForm] = useState<ProductFormState>({ ...initialForm });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (form.supplier && !suppliers.includes(form.supplier)) {
+      handleClose();
+    }
+  }, [form.supplier, open, suppliers]);
 
   const toDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -81,9 +99,31 @@ export default function AddProductModal({
     });
   };
 
+  const generateSku = (name: string) => {
+    const base = name
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.slice(0, 3))
+      .join("")
+      .slice(0, 6) || "PRD";
+
+    const usedSkus = new Set(existingSkus.map((sku) => sku.toUpperCase()));
+    let counter = 1;
+    let candidate = `${base}-${String(counter).padStart(3, "0")}`;
+
+    while (usedSkus.has(candidate)) {
+      counter += 1;
+      candidate = `${base}-${String(counter).padStart(3, "0")}`;
+    }
+
+    return candidate;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    const nextValue = type === "number" ? Number(value) : value;
+    const nextValue = type === "number" ? value : value;
 
     setForm({
       ...form,
@@ -92,7 +132,6 @@ export default function AddProductModal({
 
     if (
       name === "name" ||
-      name === "sku" ||
       name === "quantity" ||
       name === "reorderLevel" ||
       name === "price"
@@ -109,6 +148,9 @@ export default function AddProductModal({
 
   const handleSubmit = () => {
     const nextErrors: Partial<Record<RequiredField, string>> = {};
+    const quantity = Number(form.quantity);
+    const reorderLevel = Number(form.reorderLevel);
+    const price = Number(form.price);
 
     if (!form.supplier) {
       nextErrors.supplier = "this field is required";
@@ -116,19 +158,16 @@ export default function AddProductModal({
     if (!form.name.trim()) {
       nextErrors.name = "this field is required";
     }
-    if (!form.sku.trim()) {
-      nextErrors.sku = "this field is required";
-    }
     if (!form.category) {
       nextErrors.category = "this field is required";
     }
-    if (form.quantity <= 0) {
+    if (!form.quantity.trim() || Number.isNaN(quantity) || quantity <= 0) {
       nextErrors.quantity = "this field is required";
     }
-    if (form.reorderLevel < 0) {
+    if (!form.reorderLevel.trim() || Number.isNaN(reorderLevel) || reorderLevel < 0) {
       nextErrors.reorderLevel = "this field is required";
     }
-    if (form.price <= 0) {
+    if (!form.price.trim() || Number.isNaN(price) || price <= 0) {
       nextErrors.price = "this field is required";
     }
 
@@ -137,13 +176,22 @@ export default function AddProductModal({
       return;
     }
 
-    onAdd(form);
+    onAdd({
+      ...form,
+      quantity,
+      reorderLevel,
+      price,
+    });
     handleClose();
   };
 
   const expirationDate = form.expiration
     ? new Date(`${form.expiration}T00:00:00`)
     : undefined;
+
+  const availableSupplierProducts = form.supplier
+    ? supplierProductsByName[form.supplier] ?? []
+    : [];
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -162,8 +210,19 @@ export default function AddProductModal({
               <Select
                 value={form.supplier}
                 onValueChange={(value) => {
-                  setForm((prev) => ({ ...prev, supplier: value }));
+                  setForm((prev) => ({
+                    ...prev,
+                    supplier: value,
+                    name: "",
+                    sku: "",
+                    price: "0",
+                    category: "",
+                    unit: "bars",
+                  }));
                   clearError("supplier");
+                  clearError("name");
+                  clearError("price");
+                  clearError("category");
                 }}
               >
                 <SelectTrigger id="supplier" className={errors.supplier ? "border-red-600" : ""}>
@@ -182,15 +241,48 @@ export default function AddProductModal({
 
             <div className="space-y-2">
               <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                name="name"
+              <Select
                 value={form.name}
-                onChange={handleChange}
-                placeholder={form.supplier ? "Enter product name" : "Select supplier first"}
-                disabled={!form.supplier}
-                className={errors.name ? "border-red-600" : ""}
-              />
+                onValueChange={(value) => {
+                  const selectedProduct = availableSupplierProducts.find(
+                    (product) => product.name === value,
+                  );
+
+                  setForm((prev) => ({
+                    ...prev,
+                    name: value,
+                    sku: generateSku(value),
+                    price: selectedProduct ? `${selectedProduct.price}` : prev.price,
+                    category: selectedProduct?.category ?? prev.category,
+                    unit: selectedProduct?.unit ?? prev.unit,
+                  }));
+                  clearError("name");
+                  clearError("price");
+                  if (selectedProduct?.category) {
+                    clearError("category");
+                  }
+                }}
+                disabled={!form.supplier || availableSupplierProducts.length === 0}
+              >
+                <SelectTrigger id="name" className={errors.name ? "border-red-600" : ""}>
+                  <SelectValue
+                    placeholder={
+                      !form.supplier
+                        ? "Select supplier first"
+                        : availableSupplierProducts.length === 0
+                          ? "No products for this supplier"
+                          : "Select existing product"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSupplierProducts.map((product) => (
+                    <SelectItem key={product.name} value={product.name}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
             </div>
 
@@ -201,11 +293,10 @@ export default function AddProductModal({
                   id="sku"
                   name="sku"
                   value={form.sku}
-                  onChange={handleChange}
-                  placeholder="e.g., LAV-001"
-                  className={errors.sku ? "border-red-600" : ""}
+                  readOnly
+                  placeholder="Auto-generated from supplier product"
+                  className="bg-muted text-muted-foreground"
                 />
-                {errors.sku && <p className="text-xs text-red-600">{errors.sku}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
