@@ -13,7 +13,7 @@ import {
 
 type InventoryTableProps = {
   products: Product[];
-  deleteProduct: (sku: string) => void;
+  deleteProduct: (id: string) => void;
 };
 
 export default function InventoryTable({
@@ -28,6 +28,7 @@ export default function InventoryTable({
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead>Product</TableHead>
               <TableHead>SKU</TableHead>
+              <TableHead>Batch ID</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Price</TableHead>
@@ -39,14 +40,17 @@ export default function InventoryTable({
           <TableBody>
             {products.map((product) => (
               <ProductRow
-                key={product.sku}
+                key={product.id}
                 product={product}
                 deleteProduct={deleteProduct}
               />
             ))}
             {products.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="h-20 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={9}
+                  className="h-20 text-center text-muted-foreground"
+                >
                   No products match your filters.
                 </TableCell>
               </TableRow>

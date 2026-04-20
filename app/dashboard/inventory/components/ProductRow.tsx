@@ -9,12 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { formatPhpCurrency } from "@/lib/currency";
 
 import { getStockStatus, type Product } from "./types";
 
 type ProductRowProps = {
   product: Product;
-  deleteProduct: (sku: string) => void;
+  deleteProduct: (id: string) => void;
 };
 
 const formatDate = (value: string) => {
@@ -61,17 +62,26 @@ export default function ProductRow({
           {product.sku}
         </Badge>
       </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="font-mono">
+          {product.batchId}
+        </Badge>
+      </TableCell>
       <TableCell>{product.category}</TableCell>
       <TableCell>
         {product.quantity} {product.unit}
       </TableCell>
-      <TableCell>${product.price.toFixed(2)}</TableCell>
+      <TableCell>{formatPhpCurrency(product.price)}</TableCell>
       <TableCell>
         <Badge className={statusStyles[status]}>{status}</Badge>
       </TableCell>
       <TableCell>
         <span
-          className={expirationSoon ? "inline-flex items-center gap-1 text-rose-600" : "text-slate-700"}
+          className={
+            expirationSoon
+              ? "inline-flex items-center gap-1 text-rose-600"
+              : "text-slate-700"
+          }
         >
           {expirationSoon && <CalendarDays className="h-3.5 w-3.5" />}
           {formatDate(product.expiration)}
@@ -87,7 +97,7 @@ export default function ProductRow({
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
               className="text-red-600 focus:text-red-600"
-              onClick={() => deleteProduct(product.sku)}
+              onClick={() => deleteProduct(product.id)}
             >
               <Trash2 className="h-4 w-4" />
               Delete Product
