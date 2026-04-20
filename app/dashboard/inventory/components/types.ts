@@ -1,6 +1,13 @@
-export type StockStatus = "In Stock" | "Low Stock" | "Out of Stock";
+import {
+  getStockStatusForProduct,
+  type StockStatus,
+} from "@/lib/dashboard-stock";
+
+export type { StockStatus };
 
 export type Product = {
+  id: string;
+  supplierProductId: string;
   name: string;
   sku: string;
   category: string;
@@ -9,17 +16,8 @@ export type Product = {
   price: number;
   expiration: string;
   supplier: string;
+  batchId: string;
   reorderLevel: number;
 };
 
-export const getStockStatus = (product: Product): StockStatus => {
-  if (product.quantity <= 0) {
-    return "Out of Stock";
-  }
-
-  if (product.quantity <= 20) {
-    return "Low Stock";
-  }
-
-  return "In Stock";
-};
+export const getStockStatus = getStockStatusForProduct;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,23 +31,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getStockStatus } from "@/app/dashboard/inventory/components/types";
-import {
-  INVENTORY_UPDATED_EVENT,
-  getStoredInventoryProducts,
-  saveInventoryProducts,
-  type InventoryRecord,
-} from "@/lib/inventory-store";
-import { SUPPLIERS_UPDATED_EVENT } from "@/lib/suppliers-store";
+import { fetchInventoryStocks } from "@/lib/dashboard-api";
+import { confirmCheckoutCommand } from "@/lib/dashboard-client-commands";
+import { formatPhpCurrency } from "@/lib/currency";
+import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
+import type { InventoryStockRecord } from "@/lib/dashboard-types";
+import { filterCheckoutProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 
 type CartLine = {
-  sku: string;
+  inventoryId: string;
   quantity: number;
 };
 
 type CheckoutItem = {
-  sku: string;
+  inventoryId: string;
   name: string;
+  sku: string;
   quantity: number;
   unit: string;
   price: number;
@@ -62,47 +61,41 @@ const statusStyles: Record<string, string> = {
   "Out of Stock": "border-transparent bg-rose-100 text-rose-700",
 };
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-});
-
-const formatPrice = (value: number) => currencyFormatter.format(value);
-
 export default function CheckoutPage() {
-  const [products, setProducts] = useState<InventoryRecord[]>(() =>
-    getStoredInventoryProducts(),
-  );
+  const [products, setProducts] = useState<InventoryStockRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => {
-    const syncProducts = () => {
-      setProducts(getStoredInventoryProducts());
-    };
-
-    syncProducts();
-    window.addEventListener("storage", syncProducts);
-    window.addEventListener(INVENTORY_UPDATED_EVENT, syncProducts);
-    window.addEventListener(SUPPLIERS_UPDATED_EVENT, syncProducts);
-
-    return () => {
-      window.removeEventListener("storage", syncProducts);
-      window.removeEventListener(INVENTORY_UPDATED_EVENT, syncProducts);
-      window.removeEventListener(SUPPLIERS_UPDATED_EVENT, syncProducts);
-    };
+  const loadProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const items = await fetchInventoryStocks();
+      setProducts(items);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to load checkout products",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
 
   useEffect(() => {
     setCart((currentCart) => {
       let changed = false;
 
       const nextCart = currentCart.flatMap((line) => {
-        const product = products.find((entry) => entry.sku === line.sku);
+        const product = products.find((entry) => entry.id === line.inventoryId);
         if (!product || product.quantity <= 0) {
           changed = true;
           return [];
@@ -120,13 +113,13 @@ export default function CheckoutPage() {
     });
   }, [products]);
 
-  const productBySku = useMemo(() => {
-    return new Map(products.map((product) => [product.sku, product]));
+  const productByInventoryId = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product]));
   }, [products]);
 
-  const cartQuantityBySku = useMemo(() => {
+  const cartQuantityByInventoryId = useMemo(() => {
     return cart.reduce<Record<string, number>>((acc, line) => {
-      acc[line.sku] = line.quantity;
+      acc[line.inventoryId] = line.quantity;
       return acc;
     }, {});
   }, [cart]);
@@ -139,26 +132,16 @@ export default function CheckoutPage() {
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
-    return products.filter((product) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        product.sku.toLowerCase().includes(normalizedSearch) ||
-        product.supplier.toLowerCase().includes(normalizedSearch);
-
-      const matchesCategory =
-        categoryFilter === ALL_CATEGORIES ||
-        product.category === categoryFilter;
-
-      return matchesSearch && matchesCategory;
+    return filterCheckoutProducts(products, {
+      search,
+      categoryFilter,
+      allCategoryLabel: ALL_CATEGORIES,
     });
   }, [products, search, categoryFilter]);
 
   const checkoutItems = useMemo<CheckoutItem[]>(() => {
     return cart.flatMap((line) => {
-      const product = productBySku.get(line.sku);
+      const product = productByInventoryId.get(line.inventoryId);
       if (!product) {
         return [];
       }
@@ -170,8 +153,9 @@ export default function CheckoutPage() {
 
       return [
         {
-          sku: product.sku,
+          inventoryId: product.id,
           name: product.name,
+          sku: product.sku,
           quantity,
           unit: product.unit,
           price: product.price,
@@ -179,7 +163,7 @@ export default function CheckoutPage() {
         },
       ];
     });
-  }, [cart, productBySku]);
+  }, [cart, productByInventoryId]);
 
   const totalItems = useMemo(() => {
     return checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -192,20 +176,20 @@ export default function CheckoutPage() {
     );
   }, [checkoutItems]);
 
-  const updateCartLine = (sku: string, requestedQuantity: number) => {
+  const updateCartLine = (inventoryId: string, requestedQuantity: number) => {
     setCart((currentCart) => {
-      const product = products.find((entry) => entry.sku === sku);
+      const product = products.find((entry) => entry.id === inventoryId);
       if (!product || product.quantity <= 0 || requestedQuantity <= 0) {
-        return currentCart.filter((line) => line.sku !== sku);
+        return currentCart.filter((line) => line.inventoryId !== inventoryId);
       }
 
       const cappedQuantity = Math.min(requestedQuantity, product.quantity);
       const existingLineIndex = currentCart.findIndex(
-        (line) => line.sku === sku,
+        (line) => line.inventoryId === inventoryId,
       );
 
       if (existingLineIndex === -1) {
-        return [...currentCart, { sku, quantity: cappedQuantity }];
+        return [...currentCart, { inventoryId, quantity: cappedQuantity }];
       }
 
       return currentCart.map((line, index) =>
@@ -216,21 +200,23 @@ export default function CheckoutPage() {
     });
   };
 
-  const addToCart = (product: InventoryRecord) => {
+  const addToCart = (product: InventoryStockRecord) => {
     if (product.quantity <= 0) {
       return;
     }
 
-    const currentQuantity = cartQuantityBySku[product.sku] ?? 0;
+    const currentQuantity = cartQuantityByInventoryId[product.id] ?? 0;
     if (currentQuantity >= product.quantity) {
       return;
     }
 
-    updateCartLine(product.sku, currentQuantity + 1);
+    updateCartLine(product.id, currentQuantity + 1);
   };
 
-  const removeFromCart = (sku: string) => {
-    setCart((currentCart) => currentCart.filter((line) => line.sku !== sku));
+  const removeFromCart = (inventoryId: string) => {
+    setCart((currentCart) =>
+      currentCart.filter((line) => line.inventoryId !== inventoryId),
+    );
   };
 
   const openConfirmModal = () => {
@@ -240,7 +226,7 @@ export default function CheckoutPage() {
     setConfirmOpen(true);
   };
 
-  const confirmCheckout = () => {
+  const confirmCheckout = async () => {
     if (checkoutItems.length === 0 || confirming) {
       return;
     }
@@ -248,43 +234,17 @@ export default function CheckoutPage() {
     setConfirming(true);
 
     try {
-      const latestInventory = getStoredInventoryProducts();
-      const latestBySku = new Map(
-        latestInventory.map((item) => [item.sku, item]),
-      );
+      await confirmCheckoutCommand(
+        checkoutItems.map((item) => ({
+          inventoryId: item.inventoryId,
+          quantity: item.quantity,
+        })),
+      ).execute();
 
-      const firstUnavailable = checkoutItems.find((item) => {
-        const latestProduct = latestBySku.get(item.sku);
-        return !latestProduct || latestProduct.quantity < item.quantity;
-      });
-
-      if (firstUnavailable) {
-        setProducts(latestInventory);
-        toast.error("Unable to complete checkout. Stock levels changed.");
-        return;
-      }
-
-      const checkoutItemsBySku = new Map(
-        checkoutItems.map((item) => [item.sku, item]),
-      );
-
-      const nextInventory = latestInventory.map((product) => {
-        const checkoutLine = checkoutItemsBySku.get(product.sku);
-        if (!checkoutLine) {
-          return product;
-        }
-
-        return {
-          ...product,
-          quantity: Math.max(product.quantity - checkoutLine.quantity, 0),
-        };
-      });
-
-      saveInventoryProducts(nextInventory);
-      setProducts(nextInventory);
       setCart([]);
       setConfirmOpen(false);
       toast.success("order has been confirmed");
+      await loadProducts();
     } catch {
       toast.error("Unable to complete checkout right now.");
     } finally {
@@ -299,7 +259,9 @@ export default function CheckoutPage() {
           Checkout
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Select products to checkout from inventory
+          {loading
+            ? "Loading checkout products..."
+            : "Select products to checkout from inventory"}
         </p>
       </div>
 
@@ -351,13 +313,14 @@ export default function CheckoutPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredProducts.map((product) => {
-                    const status = getStockStatus(product);
-                    const inCartQuantity = cartQuantityBySku[product.sku] ?? 0;
+                    const status = getStockStatusByQuantity(product.quantity);
+                    const inCartQuantity =
+                      cartQuantityByInventoryId[product.id] ?? 0;
                     const canAdd =
                       product.quantity > 0 && inCartQuantity < product.quantity;
 
                     return (
-                      <TableRow key={product.sku}>
+                      <TableRow key={product.id}>
                         <TableCell className="w-[340px]">
                           <p className="font-semibold text-slate-900">
                             {product.name}
@@ -365,12 +328,17 @@ export default function CheckoutPage() {
                           <p className="text-sm text-slate-500">
                             SKU: {product.sku}
                           </p>
+                          <p className="text-xs text-slate-400">
+                            Batch: {product.batchId}
+                          </p>
                         </TableCell>
                         <TableCell>{product.category}</TableCell>
                         <TableCell>
                           {product.quantity} {product.unit}
                         </TableCell>
-                        <TableCell>{formatPrice(product.price)}</TableCell>
+                        <TableCell>
+                          {formatPhpCurrency(product.price)}
+                        </TableCell>
                         <TableCell>
                           <Badge className={statusStyles[status]}>
                             {status}
@@ -427,7 +395,7 @@ export default function CheckoutPage() {
 
                     return (
                       <div
-                        key={item.sku}
+                        key={item.inventoryId}
                         className="rounded-md border border-slate-200 p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -442,7 +410,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             aria-label="Remove from cart"
-                            onClick={() => removeFromCart(item.sku)}
+                            onClick={() => removeFromCart(item.inventoryId)}
                             className="rounded p-1 text-rose-500 transition hover:bg-rose-50"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -456,28 +424,46 @@ export default function CheckoutPage() {
                               variant="outline"
                               className="h-8 w-8"
                               onClick={() =>
-                                updateCartLine(item.sku, item.quantity - 1)
+                                updateCartLine(
+                                  item.inventoryId,
+                                  item.quantity - 1,
+                                )
                               }
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
-                            <span className="w-4 text-center text-sm font-semibold">
-                              {item.quantity}
-                            </span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={item.available}
+                              value={item.quantity}
+                              onChange={(event) => {
+                                const nextQuantity = Number(event.target.value);
+                                if (Number.isNaN(nextQuantity)) {
+                                  return;
+                                }
+
+                                updateCartLine(item.inventoryId, nextQuantity);
+                              }}
+                              className="h-8 w-20 text-center"
+                            />
                             <Button
                               size="icon"
                               variant="outline"
                               className="h-8 w-8"
                               disabled={!canIncrease}
                               onClick={() =>
-                                updateCartLine(item.sku, item.quantity + 1)
+                                updateCartLine(
+                                  item.inventoryId,
+                                  item.quantity + 1,
+                                )
                               }
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
                           </div>
                           <p className="text-2xl font-semibold text-slate-800">
-                            {formatPrice(lineTotal)}
+                            {formatPhpCurrency(lineTotal)}
                           </p>
                         </div>
                       </div>
@@ -492,7 +478,7 @@ export default function CheckoutPage() {
                     <div className="mt-1 flex items-center justify-between text-2xl font-bold text-slate-900">
                       <span>Total Amount:</span>
                       <span className="text-emerald-700">
-                        {formatPrice(totalAmount)}
+                        {formatPhpCurrency(totalAmount)}
                       </span>
                     </div>
                   </div>
@@ -526,14 +512,14 @@ export default function CheckoutPage() {
           <div className="space-y-4 py-3">
             {checkoutItems.map((item) => (
               <div
-                key={item.sku}
+                key={item.inventoryId}
                 className="flex items-center justify-between gap-4"
               >
                 <p className="text-lg font-medium text-slate-900 sm:text-2xl">
                   {item.name} x {item.quantity}
                 </p>
                 <p className="text-lg font-semibold text-slate-900 sm:text-2xl">
-                  {formatPrice(item.quantity * item.price)}
+                  {formatPhpCurrency(item.quantity * item.price)}
                 </p>
               </div>
             ))}
@@ -543,7 +529,7 @@ export default function CheckoutPage() {
             <div className="flex items-center justify-between text-2xl font-semibold leading-none text-slate-900 sm:text-3xl">
               <span>Total:</span>
               <span className="text-emerald-700">
-                {formatPrice(totalAmount)}
+                {formatPhpCurrency(totalAmount)}
               </span>
             </div>
           </div>

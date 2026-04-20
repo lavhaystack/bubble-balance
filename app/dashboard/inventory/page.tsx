@@ -1,13 +1,24 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import InventoryTable from "./components/InventoryTable";
 import AddProductModal from "./components/AddProductModal";
-import { getStockStatus, type Product } from "./components/types";
+import { type Product } from "./components/types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchInventoryStocks, fetchSuppliers } from "@/lib/dashboard-api";
+import {
+  createInventoryStockCommand,
+  deleteInventoryStockCommand,
+} from "@/lib/dashboard-client-commands";
+import type {
+  InventoryStockRecord,
+  SupplierRecord,
+} from "@/lib/dashboard-types";
+import { filterInventoryProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 import {
   Select,
   SelectContent,
@@ -15,176 +26,127 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  SUPPLIERS_UPDATED_EVENT,
-  getStoredSuppliers,
-  saveSuppliers,
-  type SupplierRecord,
-} from "@/lib/suppliers-store";
-import {
-  INVENTORY_UPDATED_EVENT,
-  getStoredInventoryProducts,
-  saveInventoryProducts,
-} from "@/lib/inventory-store";
 
 export default function Page() {
-  const [products, setProducts] = useState<Product[]>(() => getStoredInventoryProducts());
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [storedSuppliers, setStoredSuppliers] = useState<SupplierRecord[]>([]);
-  const [pendingDeleteSku, setPendingDeleteSku] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const syncSuppliers = () => {
-      setStoredSuppliers(getStoredSuppliers());
-    };
-
-    syncSuppliers();
-    window.addEventListener("storage", syncSuppliers);
-    window.addEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
-
-    return () => {
-      window.removeEventListener("storage", syncSuppliers);
-      window.removeEventListener(SUPPLIERS_UPDATED_EVENT, syncSuppliers);
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncInventory = () => {
-      setProducts(getStoredInventoryProducts());
-    };
-
-    syncInventory();
-    window.addEventListener("storage", syncInventory);
-    window.addEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
-
-    return () => {
-      window.removeEventListener("storage", syncInventory);
-      window.removeEventListener(INVENTORY_UPDATED_EVENT, syncInventory);
-    };
-  }, []);
-
-  const addProduct = (product: Product) => {
-    const nextProducts = [...products, product];
-    setProducts(nextProducts);
-    saveInventoryProducts(nextProducts);
-
-    const normalizedSupplierName = product.supplier.trim();
-    const existingSuppliers = getStoredSuppliers();
-
-    const updatedSuppliers = (() => {
-      const existingSupplierIndex = existingSuppliers.findIndex(
-        (supplier) => supplier.name.toLowerCase() === normalizedSupplierName.toLowerCase(),
-      );
-
-      if (existingSupplierIndex === -1) {
-        const generatedId = `${normalizedSupplierName
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-
-        const newSupplier: SupplierRecord = {
-          id: generatedId,
-          name: normalizedSupplierName,
-          contactPerson: "TBD",
-          email: "tbd@supplier.com",
-          phone: "TBD",
-          products: [
-            {
-              name: product.name,
-              price: product.price,
-            },
-          ],
-        };
-
-        return [...existingSuppliers, newSupplier];
-      }
-
-      return existingSuppliers.map((supplier, index) => {
-        if (index !== existingSupplierIndex) {
-          return supplier;
-        }
-
-        const productExists = supplier.products.some(
-          (item) => item.name.toLowerCase() === product.name.toLowerCase(),
-        );
-
-        if (productExists) {
-          return {
-            ...supplier,
-            products: supplier.products.map((item) =>
-              item.name.toLowerCase() === product.name.toLowerCase()
-                ? { ...item, price: product.price }
-                : item,
-            ),
-          };
-        }
-
-        return {
-          ...supplier,
-          products: [
-            ...supplier.products,
-            {
-              name: product.name,
-              price: product.price,
-            },
-          ],
-        };
-      });
-    })();
-
-    saveSuppliers(updatedSuppliers);
-  };
-
-  const deleteProduct = (sku: string) => {
-    const nextProducts = products.filter((p) => p.sku !== sku);
-    setProducts(nextProducts);
-    saveInventoryProducts(nextProducts);
-  };
-
-  const requestDeleteProduct = (sku: string) => {
-    setPendingDeleteSku(sku);
-  };
-
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      p.supplier.toLowerCase().includes(search.toLowerCase());
-
-    const matchesCategory =
-      categoryFilter === "All" || p.category === categoryFilter;
-
-    const stockStatus = getStockStatus(p);
-    const matchesStatus = statusFilter === "All" || stockStatus === statusFilter;
-
-    return matchesSearch && matchesCategory && matchesStatus;
+  const toProduct = (record: InventoryStockRecord): Product => ({
+    id: record.id,
+    supplierProductId: record.supplierProductId,
+    name: record.name,
+    sku: record.sku,
+    category: record.category,
+    quantity: record.quantity,
+    unit: record.unit,
+    price: record.price,
+    expiration: record.expiration,
+    supplier: record.supplierName,
+    batchId: record.batchId,
+    reorderLevel: record.reorderLevel,
   });
 
-  const categories = ["All", ...new Set(products.map(p => p.category))];
-  const suppliers = useMemo(() => {
-    return [...new Set([...storedSuppliers.map((supplier) => supplier.name), ...products.map((p) => p.supplier)])].sort(
-      (a, b) => a.localeCompare(b),
-    );
-  }, [products, storedSuppliers]);
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [inventoryItems, supplierItems] = await Promise.all([
+        fetchInventoryStocks(),
+        fetchSuppliers(),
+      ]);
 
-  const supplierProductsByName = useMemo(() => {
-    return storedSuppliers.reduce<Record<string, SupplierRecord["products"]>>((acc, supplier) => {
-      acc[supplier.name] = supplier.products;
-      return acc;
-    }, {});
-  }, [storedSuppliers]);
-  const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
+      setProducts(inventoryItems.map(toProduct));
+      setSuppliers(supplierItems);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load inventory",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const addProduct = async (payload: {
+    supplierProductId: string;
+    quantity: number;
+    batchId: string;
+    expiration?: string;
+    reorderLevel: number;
+  }) => {
+    try {
+      await createInventoryStockCommand(payload).execute();
+      toast.success("product has been saved");
+      await loadData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to save inventory item",
+      );
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      await deleteInventoryStockCommand(id).execute();
+      toast.success("product has been deleted");
+      setPendingDeleteId(null);
+      await loadData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete inventory item",
+      );
+    }
+  };
+
+  const requestDeleteProduct = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const filteredProducts = useMemo(
+    () =>
+      filterInventoryProducts(products, {
+        search,
+        categoryFilter,
+        statusFilter,
+        allCategoryLabel: "All",
+        allStatusLabel: "All",
+      }),
+    [products, search, categoryFilter, statusFilter],
+  );
+
+  const categories = useMemo(
+    () => ["All", ...new Set(products.map((p) => p.category))],
+    [products],
+  );
+  const statuses = useMemo(
+    () => ["All", "In Stock", "Low Stock", "Out of Stock"],
+    [],
+  );
 
   return (
     <div className="space-y-5 p-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Inventory Management</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Inventory Management
+        </h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        {filteredProducts.length} of {products.length} products
+        {loading
+          ? "Loading inventory..."
+          : `${filteredProducts.length} of ${products.length} products`}
       </p>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -245,28 +207,28 @@ export default function Page() {
         open={showModal}
         onClose={() => setShowModal(false)}
         onAdd={addProduct}
-        categories={categories.filter((category) => category !== "All")}
         suppliers={suppliers}
-        supplierProductsByName={supplierProductsByName}
-        existingSkus={products.map((product) => product.sku)}
       />
 
-      {pendingDeleteSku && (
+      {pendingDeleteId && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div className="w-[370px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
               are you sure you want to delete this product
             </p>
             <div className="mt-3 flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setPendingDeleteSku(null)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingDeleteId(null)}
+              >
                 Cancel
               </Button>
               <Button
                 size="sm"
                 variant="destructive"
                 onClick={() => {
-                  deleteProduct(pendingDeleteSku);
-                  setPendingDeleteSku(null);
+                  void deleteProduct(pendingDeleteId);
                 }}
               >
                 Delete

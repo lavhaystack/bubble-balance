@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -21,44 +25,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatPhpCurrency } from "@/lib/currency";
+import type { SupplierRecord } from "@/lib/dashboard-types";
 import { cn } from "@/lib/utils";
-import type { SupplierProduct } from "@/lib/suppliers-store";
-
-import type { Product } from "./types";
 
 type AddProductModalProps = {
   open: boolean;
   onClose: () => void;
-  onAdd: (product: Product) => void;
-  categories: string[];
-  suppliers: string[];
-  supplierProductsByName: Record<string, SupplierProduct[]>;
-  existingSkus: string[];
+  onAdd: (payload: {
+    supplierProductId: string;
+    quantity: number;
+    batchId: string;
+    expiration?: string;
+    reorderLevel: number;
+  }) => void;
+  suppliers: SupplierRecord[];
 };
 
 type RequiredField =
-  | "supplier"
-  | "name"
-  | "category"
+  | "supplierId"
+  | "supplierProductId"
   | "quantity"
-  | "reorderLevel"
-  | "price";
+  | "batchId"
+  | "reorderLevel";
 
-type ProductFormState = Omit<Product, "quantity" | "reorderLevel" | "price"> & {
+type ProductFormState = {
+  supplierId: string;
+  supplierProductId: string;
   quantity: string;
+  batchId: string;
   reorderLevel: string;
-  price: string;
+  expiration: string;
 };
 
 const initialForm: ProductFormState = {
-  supplier: "",
-  name: "",
-  sku: "",
-  category: "",
+  supplierId: "",
+  supplierProductId: "",
   quantity: "0",
-  unit: "bars",
+  batchId: "",
   reorderLevel: "10",
-  price: "0",
   expiration: "",
 };
 
@@ -66,23 +71,25 @@ export default function AddProductModal({
   open,
   onClose,
   onAdd,
-  categories,
   suppliers,
-  supplierProductsByName,
-  existingSkus,
 }: AddProductModalProps) {
   const [form, setForm] = useState<ProductFormState>({ ...initialForm });
-  const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>(
+    {},
+  );
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
+    if (!open) return;
 
-    if (form.supplier && !suppliers.includes(form.supplier)) {
-      handleClose();
+    if (
+      form.supplierId &&
+      !suppliers.some((supplier) => supplier.id === form.supplierId)
+    ) {
+      setForm({ ...initialForm });
+      setErrors({});
+      onClose();
     }
-  }, [form.supplier, open, suppliers]);
+  }, [form.supplierId, onClose, open, suppliers]);
 
   const toDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -99,43 +106,15 @@ export default function AddProductModal({
     });
   };
 
-  const generateSku = (name: string) => {
-    const base = name
-      .toUpperCase()
-      .replace(/[^A-Z0-9\s]/g, "")
-      .trim()
-      .split(/\s+/)
-      .map((word) => word.slice(0, 3))
-      .join("")
-      .slice(0, 6) || "PRD";
-
-    const usedSkus = new Set(existingSkus.map((sku) => sku.toUpperCase()));
-    let counter = 1;
-    let candidate = `${base}-${String(counter).padStart(3, "0")}`;
-
-    while (usedSkus.has(candidate)) {
-      counter += 1;
-      candidate = `${base}-${String(counter).padStart(3, "0")}`;
-    }
-
-    return candidate;
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
-    const nextValue = type === "number" ? value : value;
+    const { name, value } = e.target;
 
     setForm({
       ...form,
-      [name]: nextValue,
+      [name]: value,
     });
 
-    if (
-      name === "name" ||
-      name === "quantity" ||
-      name === "reorderLevel" ||
-      name === "price"
-    ) {
+    if (name === "quantity" || name === "reorderLevel" || name === "batchId") {
       clearError(name);
     }
   };
@@ -150,25 +129,25 @@ export default function AddProductModal({
     const nextErrors: Partial<Record<RequiredField, string>> = {};
     const quantity = Number(form.quantity);
     const reorderLevel = Number(form.reorderLevel);
-    const price = Number(form.price);
 
-    if (!form.supplier) {
-      nextErrors.supplier = "this field is required";
+    if (!form.supplierId) {
+      nextErrors.supplierId = "this field is required";
     }
-    if (!form.name.trim()) {
-      nextErrors.name = "this field is required";
-    }
-    if (!form.category) {
-      nextErrors.category = "this field is required";
+    if (!form.supplierProductId) {
+      nextErrors.supplierProductId = "this field is required";
     }
     if (!form.quantity.trim() || Number.isNaN(quantity) || quantity <= 0) {
       nextErrors.quantity = "this field is required";
     }
-    if (!form.reorderLevel.trim() || Number.isNaN(reorderLevel) || reorderLevel < 0) {
-      nextErrors.reorderLevel = "this field is required";
+    if (!form.batchId.trim()) {
+      nextErrors.batchId = "this field is required";
     }
-    if (!form.price.trim() || Number.isNaN(price) || price <= 0) {
-      nextErrors.price = "this field is required";
+    if (
+      !form.reorderLevel.trim() ||
+      Number.isNaN(reorderLevel) ||
+      reorderLevel < 0
+    ) {
+      nextErrors.reorderLevel = "this field is required";
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -177,10 +156,11 @@ export default function AddProductModal({
     }
 
     onAdd({
-      ...form,
+      supplierProductId: form.supplierProductId,
       quantity,
+      batchId: form.batchId.trim(),
       reorderLevel,
-      price,
+      expiration: form.expiration || undefined,
     });
     handleClose();
   };
@@ -189,9 +169,13 @@ export default function AddProductModal({
     ? new Date(`${form.expiration}T00:00:00`)
     : undefined;
 
-  const availableSupplierProducts = form.supplier
-    ? supplierProductsByName[form.supplier] ?? []
-    : [];
+  const selectedSupplier = suppliers.find(
+    (supplier) => supplier.id === form.supplierId,
+  );
+  const availableSupplierProducts = selectedSupplier?.products ?? [];
+  const selectedProduct = availableSupplierProducts.find(
+    (product) => product.id === form.supplierProductId,
+  );
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -206,68 +190,60 @@ export default function AddProductModal({
 
           <div className="mt-6 grid gap-4">
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
+              <Label htmlFor="supplierId">Supplier *</Label>
               <Select
-                value={form.supplier}
+                value={form.supplierId}
                 onValueChange={(value) => {
                   setForm((prev) => ({
                     ...prev,
-                    supplier: value,
-                    name: "",
-                    sku: "",
-                    price: "0",
-                    category: "",
-                    unit: "bars",
+                    supplierId: value,
+                    supplierProductId: "",
                   }));
-                  clearError("supplier");
-                  clearError("name");
-                  clearError("price");
-                  clearError("category");
+                  clearError("supplierId");
+                  clearError("supplierProductId");
                 }}
               >
-                <SelectTrigger id="supplier" className={errors.supplier ? "border-red-600" : ""}>
+                <SelectTrigger
+                  id="supplierId"
+                  className={errors.supplierId ? "border-red-600" : ""}
+                >
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((supplier) => (
-                    <SelectItem key={supplier} value={supplier}>
-                      {supplier}
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.supplier && <p className="text-xs text-red-600">{errors.supplier}</p>}
+              {errors.supplierId && (
+                <p className="text-xs text-red-600">{errors.supplierId}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name *</Label>
+              <Label htmlFor="supplierProductId">Product Name *</Label>
               <Select
-                value={form.name}
+                value={form.supplierProductId}
                 onValueChange={(value) => {
-                  const selectedProduct = availableSupplierProducts.find(
-                    (product) => product.name === value,
-                  );
-
                   setForm((prev) => ({
                     ...prev,
-                    name: value,
-                    sku: generateSku(value),
-                    price: selectedProduct ? `${selectedProduct.price}` : prev.price,
-                    category: selectedProduct?.category ?? prev.category,
-                    unit: selectedProduct?.unit ?? prev.unit,
+                    supplierProductId: value,
                   }));
-                  clearError("name");
-                  clearError("price");
-                  if (selectedProduct?.category) {
-                    clearError("category");
-                  }
+                  clearError("supplierProductId");
                 }}
-                disabled={!form.supplier || availableSupplierProducts.length === 0}
+                disabled={
+                  !form.supplierId || availableSupplierProducts.length === 0
+                }
               >
-                <SelectTrigger id="name" className={errors.name ? "border-red-600" : ""}>
+                <SelectTrigger
+                  id="supplierProductId"
+                  className={errors.supplierProductId ? "border-red-600" : ""}
+                >
                   <SelectValue
                     placeholder={
-                      !form.supplier
+                      !form.supplierId
                         ? "Select supplier first"
                         : availableSupplierProducts.length === 0
                           ? "No products for this supplier"
@@ -277,13 +253,17 @@ export default function AddProductModal({
                 </SelectTrigger>
                 <SelectContent>
                   {availableSupplierProducts.map((product) => (
-                    <SelectItem key={product.name} value={product.name}>
+                    <SelectItem key={product.id} value={product.id}>
                       {product.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
+              {errors.supplierProductId && (
+                <p className="text-xs text-red-600">
+                  {errors.supplierProductId}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -291,34 +271,20 @@ export default function AddProductModal({
                 <Label htmlFor="sku">SKU *</Label>
                 <Input
                   id="sku"
-                  name="sku"
-                  value={form.sku}
+                  value={selectedProduct?.sku ?? ""}
                   readOnly
-                  placeholder="Auto-generated from supplier product"
+                  placeholder="Auto-filled from supplier product"
                   className="bg-muted text-muted-foreground"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(value) => {
-                    setForm((prev) => ({ ...prev, category: value }));
-                    clearError("category");
-                  }}
-                >
-                  <SelectTrigger id="category" className={errors.category ? "border-red-600" : ""}>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.category && <p className="text-xs text-red-600">{errors.category}</p>}
+                <Input
+                  id="category"
+                  value={selectedProduct?.category ?? "-"}
+                  readOnly
+                  className="bg-muted text-muted-foreground"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity *</Label>
@@ -331,11 +297,32 @@ export default function AddProductModal({
                   onChange={handleChange}
                   className={errors.quantity ? "border-red-600" : ""}
                 />
-                {errors.quantity && <p className="text-xs text-red-600">{errors.quantity}</p>}
+                {errors.quantity && (
+                  <p className="text-xs text-red-600">{errors.quantity}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="batchId">Batch ID *</Label>
+                <Input
+                  id="batchId"
+                  name="batchId"
+                  value={form.batchId}
+                  onChange={handleChange}
+                  placeholder="e.g., BATCH-2026-01"
+                  className={errors.batchId ? "border-red-600" : ""}
+                />
+                {errors.batchId && (
+                  <p className="text-xs text-red-600">{errors.batchId}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
-                <Input id="unit" name="unit" value={form.unit} onChange={handleChange} />
+                <Input
+                  id="unit"
+                  value={selectedProduct?.unit ?? "unit"}
+                  readOnly
+                  className="bg-muted text-muted-foreground"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reorderLevel">Reorder Level *</Label>
@@ -353,18 +340,17 @@ export default function AddProductModal({
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($) *</Label>
+                <Label htmlFor="price">Price (₱) *</Label>
                 <Input
                   id="price"
-                  name="price"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.price}
-                  onChange={handleChange}
-                  className={errors.price ? "border-red-600" : ""}
+                  value={
+                    selectedProduct
+                      ? formatPhpCurrency(selectedProduct.price)
+                      : ""
+                  }
+                  readOnly
+                  className="bg-muted text-muted-foreground"
                 />
-                {errors.price && <p className="text-xs text-red-600">{errors.price}</p>}
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="expiration">Expiration Date</Label>
@@ -401,7 +387,10 @@ export default function AddProductModal({
                           return;
                         }
 
-                        setForm((prev) => ({ ...prev, expiration: toDateString(date) }));
+                        setForm((prev) => ({
+                          ...prev,
+                          expiration: toDateString(date),
+                        }));
                       }}
                       initialFocus
                     />
