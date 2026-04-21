@@ -85,7 +85,7 @@ export default function Page() {
   }) => {
     try {
       await createInventoryStockCommand(payload).execute();
-      toast.success("product has been saved");
+      toast.success("Product has been saved");
       await loadData();
     } catch (error) {
       toast.error(
@@ -99,7 +99,7 @@ export default function Page() {
   const deleteProduct = async (id: string) => {
     try {
       await deleteInventoryStockCommand(id).execute();
-      toast.success("product has been deleted");
+      toast.success("Product has been deleted");
       setPendingDeleteId(null);
       await loadData();
     } catch (error) {
@@ -137,17 +137,17 @@ export default function Page() {
   );
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">
           Inventory Management
         </h1>
-      </div>
       <p className="text-sm text-muted-foreground">
         {loading
           ? "Loading inventory..."
           : `${filteredProducts.length} of ${products.length} products`}
       </p>
+      </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
@@ -214,7 +214,7 @@ export default function Page() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div className="w-[370px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
-              are you sure you want to delete this product
+              Are you sure you want to delete this product?
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button

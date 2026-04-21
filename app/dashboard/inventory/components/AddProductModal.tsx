@@ -131,16 +131,16 @@ export default function AddProductModal({
     const reorderLevel = Number(form.reorderLevel);
 
     if (!form.supplierId) {
-      nextErrors.supplierId = "this field is required";
+      nextErrors.supplierId = "Supplier is required";
     }
     if (!form.supplierProductId) {
-      nextErrors.supplierProductId = "this field is required";
+      nextErrors.supplierProductId = "Product is required";
     }
     if (!form.quantity.trim() || Number.isNaN(quantity) || quantity <= 0) {
-      nextErrors.quantity = "this field is required";
+      nextErrors.quantity = "Quantity is required";
     }
     if (!form.batchId.trim()) {
-      nextErrors.batchId = "this field is required";
+      nextErrors.batchId = "Batch ID is required";
     }
     if (
       !form.reorderLevel.trim() ||

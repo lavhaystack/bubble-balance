@@ -223,7 +223,7 @@ export default function SuppliersPage() {
 
     try {
       await deleteSupplierCommand(supplierId).execute();
-      toast.success("supplier has been deleted");
+      toast.success("Supplier has been deleted");
       setPendingRemoveSupplierId(null);
       await loadSuppliers();
     } catch (error) {
@@ -237,16 +237,16 @@ export default function SuppliersPage() {
     const nextErrors: Partial<Record<keyof SupplierForm, string>> = {};
 
     if (!form.name.trim()) {
-      nextErrors.name = "this field is required";
+      nextErrors.name = "Supplier Name is required";
     }
     if (!form.contactPerson.trim()) {
-      nextErrors.contactPerson = "this field is required";
+      nextErrors.contactPerson = "Contact Person is required";
     }
     if (!form.email.trim()) {
-      nextErrors.email = "this field is required";
+      nextErrors.email = "Email is required";
     }
     if (!form.phone.trim()) {
-      nextErrors.phone = "this field is required";
+      nextErrors.phone = "Phone number is required";
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -264,10 +264,10 @@ export default function SuppliersPage() {
 
       if (editingSupplierId) {
         await updateSupplierCommand(editingSupplierId, payload).execute();
-        toast.success("supplier has been edited");
+        toast.success("Supplier has been edited");
       } else {
         await createSupplierCommand(payload).execute();
-        toast.success("supplier has been saved");
+        toast.success("Supplier has been saved");
       }
 
       handleCloseModal();
@@ -356,13 +356,13 @@ export default function SuppliersPage() {
     const nextErrors: Partial<Record<keyof SupplierProductForm, string>> = {};
 
     if (!productForm.name.trim()) {
-      nextErrors.name = "this field is required";
+      nextErrors.name = "Product Name is required";
     }
     if (!productForm.sku.trim()) {
-      nextErrors.sku = "this field is required";
+      nextErrors.sku = "Stock Keeping Unit (SKU) is required";
     }
     if (!productForm.price.trim() || Number(productForm.price) <= 0) {
-      nextErrors.price = "this field is required";
+      nextErrors.price = "Price is required";
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -397,10 +397,10 @@ export default function SuppliersPage() {
             category: payload.category,
             unit: payload.unit,
           }).execute();
-          toast.success("product has been edited");
+          toast.success("Product has been edited");
         } else {
           await createSupplierProductCommand(payload).execute();
-          toast.success("product has been saved");
+          toast.success("Product has been saved");
         }
 
         handleCloseProductModal();
@@ -418,7 +418,7 @@ export default function SuppliersPage() {
   const removeSupplierProductById = async (productId: string) => {
     try {
       await deleteSupplierProductCommand(productId).execute();
-      toast.success("product has been deleted");
+      toast.success("Product has been deleted");
       setPendingRemoveProduct(null);
       await loadSuppliers();
     } catch (error) {
@@ -592,7 +592,7 @@ export default function SuppliersPage() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div className="w-[380px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
-              are you sure you want to remove supplier
+              Are you sure you want to remove supplier
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button
@@ -620,7 +620,7 @@ export default function SuppliersPage() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div className="w-[420px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
-              are you sure you want to remove {pendingRemoveProduct.productName}
+              Are you sure you want to remove {pendingRemoveProduct.productName}?
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button

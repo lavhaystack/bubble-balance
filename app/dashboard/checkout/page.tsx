@@ -243,7 +243,7 @@ export default function CheckoutPage() {
 
       setCart([]);
       setConfirmOpen(false);
-      toast.success("order has been confirmed");
+      toast.success("Order has been confirmed");
       await loadProducts();
     } catch {
       toast.error("Unable to complete checkout right now.");
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
           Checkout
         </h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -267,9 +267,6 @@ export default function CheckoutPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          <h2 className="text-[30px] font-bold leading-none text-slate-900">
-            Available Products
-          </h2>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
