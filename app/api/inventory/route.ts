@@ -9,10 +9,14 @@ import { SupabaseDashboardRepositoryFactory } from "@/lib/patterns/repositories/
 import { createClient } from "@/lib/supabase/server";
 
 const getHandler = withDashboardGuards(async (request: Request) => {
-  void request;
+  const url = new URL(request.url);
+  const includeArchived = url.searchParams.get("includeArchived") === "true";
+
   const supabase = await createClient();
   const repositoryFactory = new SupabaseDashboardRepositoryFactory(supabase);
-  const items = await repositoryFactory.createInventoryRepository().list();
+  const items = await repositoryFactory
+    .createInventoryRepository()
+    .list({ includeArchived });
 
   return success({ items });
 });

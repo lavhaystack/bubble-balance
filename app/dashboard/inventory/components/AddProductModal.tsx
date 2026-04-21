@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatPhpCurrency } from "@/lib/currency";
+import { buildSuggestedBatchId } from "@/lib/batch-id";
 import type { SupplierRecord } from "@/lib/dashboard-types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,9 @@ type AddProductModalProps = {
     reorderLevel: number;
   }) => void;
   suppliers: SupplierRecord[];
+  initialSupplierId?: string;
+  initialSupplierProductId?: string;
+  existingBatchIds?: string[];
 };
 
 type RequiredField =
@@ -47,7 +51,8 @@ type RequiredField =
   | "supplierProductId"
   | "quantity"
   | "batchId"
-  | "reorderLevel";
+  | "reorderLevel"
+  | "expiration";
 
 type ProductFormState = {
   supplierId: string;
@@ -72,19 +77,35 @@ export default function AddProductModal({
   onClose,
   onAdd,
   suppliers,
+  initialSupplierId,
+  initialSupplierProductId,
+  existingBatchIds = [],
 }: AddProductModalProps) {
   const [form, setForm] = useState<ProductFormState>({ ...initialForm });
   const [errors, setErrors] = useState<Partial<Record<RequiredField, string>>>(
     {},
   );
+  const [batchIdManuallyEdited, setBatchIdManuallyEdited] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
-    if (
-      form.supplierId &&
-      !suppliers.some((supplier) => supplier.id === form.supplierId)
-    ) {
+    if (initialSupplierId || initialSupplierProductId) {
+      setForm((prev) => ({
+        ...prev,
+        supplierId: initialSupplierId ?? prev.supplierId,
+        supplierProductId: initialSupplierProductId ?? prev.supplierProductId,
+      }));
+      setBatchIdManuallyEdited(false);
+    }
+  }, [initialSupplierId, initialSupplierProductId, open]);
+
+  useEffect(() => {
+    if (!open || !form.supplierId) {
+      return;
+    }
+
+    if (!suppliers.some((supplier) => supplier.id === form.supplierId)) {
       setForm({ ...initialForm });
       setErrors({});
       onClose();
@@ -109,6 +130,10 @@ export default function AddProductModal({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
+    if (name === "batchId") {
+      setBatchIdManuallyEdited(true);
+    }
+
     setForm({
       ...form,
       [name]: value,
@@ -122,6 +147,7 @@ export default function AddProductModal({
   const handleClose = () => {
     setForm({ ...initialForm });
     setErrors({});
+    setBatchIdManuallyEdited(false);
     onClose();
   };
 
@@ -148,6 +174,16 @@ export default function AddProductModal({
       reorderLevel < 0
     ) {
       nextErrors.reorderLevel = "this field is required";
+    }
+
+    if (form.expiration) {
+      const selectedDate = new Date(`${form.expiration}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today) {
+        nextErrors.expiration = "Expiration date cannot be in the past";
+      }
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -177,6 +213,17 @@ export default function AddProductModal({
     (product) => product.id === form.supplierProductId,
   );
 
+  useEffect(() => {
+    if (!open || !selectedProduct || batchIdManuallyEdited) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      batchId: buildSuggestedBatchId(selectedProduct.sku, existingBatchIds),
+    }));
+  }, [batchIdManuallyEdited, existingBatchIds, open, selectedProduct]);
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent className="max-w-[680px] p-0">
@@ -199,6 +246,7 @@ export default function AddProductModal({
                     supplierId: value,
                     supplierProductId: "",
                   }));
+                  setBatchIdManuallyEdited(false);
                   clearError("supplierId");
                   clearError("supplierProductId");
                 }}
@@ -231,6 +279,7 @@ export default function AddProductModal({
                     ...prev,
                     supplierProductId: value,
                   }));
+                  setBatchIdManuallyEdited(false);
                   clearError("supplierProductId");
                 }}
                 disabled={
@@ -381,6 +430,11 @@ export default function AddProductModal({
                       className="w-full"
                       mode="single"
                       selected={expirationDate}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
                       onSelect={(date) => {
                         if (!date) {
                           setForm((prev) => ({ ...prev, expiration: "" }));
@@ -396,6 +450,9 @@ export default function AddProductModal({
                     />
                   </PopoverContent>
                 </Popover>
+                {errors.expiration && (
+                  <p className="text-xs text-red-600">{errors.expiration}</p>
+                )}
               </div>
             </div>
           </div>

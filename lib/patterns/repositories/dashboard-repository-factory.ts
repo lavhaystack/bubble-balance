@@ -3,6 +3,7 @@ import type {
   CreateInventoryStockInput,
   CreateSupplierInput,
   CreateSupplierProductInput,
+  UpdateInventoryArchiveInput,
   UpdateSupplierInput,
   UpdateSupplierProductInput,
 } from "@/lib/api/schemas";
@@ -29,7 +30,7 @@ type SupabaseErrorLike = {
 };
 
 const INVENTORY_SELECT =
-  "id,quantity,batch_id,expiration,reorder_level,supplier_product_id,created_at,updated_at," +
+  "id,quantity,initial_quantity,batch_id,expiration,archived_at,reorder_level,supplier_product_id,created_at,updated_at," +
   "supplier_products!inner(id,supplier_id,name,sku,category,unit,price,suppliers!inner(id,name))";
 
 function failFromSupabase(
@@ -72,8 +73,14 @@ export interface SupplierProductRepository {
 }
 
 export interface InventoryRepository {
-  list(): Promise<InventoryStockRecord[]>;
+  list(options?: {
+    includeArchived?: boolean;
+  }): Promise<InventoryStockRecord[]>;
   create(payload: CreateInventoryStockInput): Promise<InventoryStockRecord>;
+  setArchived(
+    id: string,
+    payload: UpdateInventoryArchiveInput,
+  ): Promise<InventoryStockRecord>;
   delete(id: string): Promise<void>;
 }
 
@@ -434,11 +441,19 @@ class SupabaseInventoryRepository implements InventoryRepository {
     return item;
   }
 
-  async list() {
-    const { data, error } = (await this.supabase
+  async list(options?: { includeArchived?: boolean }) {
+    const includeArchived = options?.includeArchived ?? false;
+
+    let query = this.supabase
       .from("inventory_stocks")
       .select(INVENTORY_SELECT)
-      .order("created_at", { ascending: false })) as {
+      .order("created_at", { ascending: false });
+
+    if (!includeArchived) {
+      query = query.is("archived_at", null);
+    }
+
+    const { data, error } = (await query) as {
       data: Array<Record<string, unknown>> | null;
       error: SupabaseErrorLike | null;
     };
@@ -458,6 +473,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
       .insert({
         supplier_product_id: payload.supplierProductId,
         quantity: payload.quantity,
+        initial_quantity: payload.quantity,
         batch_id: payload.batchId,
         expiration: payload.expiration ?? null,
         reorder_level: payload.reorderLevel,
@@ -486,6 +502,34 @@ class SupabaseInventoryRepository implements InventoryRepository {
     }
 
     return this.getById(created.id);
+  }
+
+  async setArchived(id: string, payload: UpdateInventoryArchiveInput) {
+    const { data, error } = (await this.supabase
+      .from("inventory_stocks")
+      .update({
+        archived_at: payload.archived ? new Date().toISOString() : null,
+      })
+      .eq("id", id)
+      .select("id")
+      .single()) as {
+      data: { id: string } | null;
+      error: SupabaseErrorLike | null;
+    };
+
+    if (error) {
+      failFromSupabase(error, "Unable to update inventory archive state");
+    }
+
+    if (!data) {
+      fail(
+        "Unable to fetch inventory item",
+        500,
+        "INVENTORY_ARCHIVE_UPDATE_MISSING",
+      );
+    }
+
+    return this.getById(data.id);
   }
 
   async delete(id: string) {

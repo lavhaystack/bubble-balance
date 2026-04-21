@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getEmailValidationError } from "@/lib/validation/form-validators";
 
 export function LoginForm({
   className,
@@ -31,6 +32,13 @@ export function LoginForm({
     const supabase = createClient();
     setIsLoading(true);
     setError(null);
+
+    const emailError = getEmailValidationError(email);
+    if (emailError) {
+      setError(emailError);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { error } = await supabase.auth.signInWithPassword({

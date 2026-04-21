@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowUpDown, Archive, Package2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import InventoryTable from "./components/InventoryTable";
@@ -13,30 +14,59 @@ import { fetchInventoryStocks, fetchSuppliers } from "@/lib/dashboard-api";
 import {
   createInventoryStockCommand,
   deleteInventoryStockCommand,
+  setInventoryStockArchivedCommand,
 } from "@/lib/dashboard-client-commands";
 import type {
   InventoryStockRecord,
   SupplierRecord,
 } from "@/lib/dashboard-types";
+import { dashboardDataCache } from "@/lib/dashboard-data-cache";
 import { filterInventoryProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
+import PaginationControls from "@/components/shared/pagination-controls";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+
+type InventoryTab = "active" | "archived";
+type ExpirationSortDirection = "asc" | "desc";
+const STATUS_OPTIONS = ["In Stock", "Low Stock", "Out of Stock"] as const;
+const INVENTORY_ROUTE = "/dashboard/inventory";
 
 export default function Page() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingInventory, setLoadingInventory] = useState(true);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [expirationSort, setExpirationSort] =
+    useState<ExpirationSortDirection>("asc");
+  const [activeTab, setActiveTab] = useState<InventoryTab>("active");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pendingDeleteProduct, setPendingDeleteProduct] =
+    useState<Product | null>(null);
+  const [initialSupplierId, setInitialSupplierId] = useState("");
+  const [initialSupplierProductId, setInitialSupplierProductId] = useState("");
 
   const toProduct = (record: InventoryStockRecord): Product => ({
     id: record.id,
@@ -47,34 +77,99 @@ export default function Page() {
     quantity: record.quantity,
     unit: record.unit,
     price: record.price,
+    initialQuantity: record.initialQuantity,
     expiration: record.expiration,
+    archivedAt: record.archivedAt,
     supplier: record.supplierName,
     batchId: record.batchId,
     reorderLevel: record.reorderLevel,
   });
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
     try {
-      setLoading(true);
-      const [inventoryItems, supplierItems] = await Promise.all([
-        fetchInventoryStocks(),
-        fetchSuppliers(),
+      await Promise.all([
+        dashboardDataCache.inventory.getOrLoad(
+          () => fetchInventoryStocks({ includeArchived: true }),
+          force,
+        ),
+        dashboardDataCache.suppliers.getOrLoad(() => fetchSuppliers(), force),
       ]);
-
-      setProducts(inventoryItems.map(toProduct));
-      setSuppliers(supplierItems);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to load inventory",
       );
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    const unsubscribeInventory = dashboardDataCache.inventory.subscribe(
+      (snapshot) => {
+        setLoadingInventory(snapshot.loading && snapshot.data === null);
+
+        if (snapshot.data) {
+          setProducts(snapshot.data.map(toProduct));
+        }
+      },
+    );
+
+    const unsubscribeSuppliers = dashboardDataCache.suppliers.subscribe(
+      (snapshot) => {
+        setLoadingSuppliers(snapshot.loading && snapshot.data === null);
+
+        if (snapshot.data) {
+          setSuppliers(snapshot.data);
+        }
+      },
+    );
+
     void loadData();
+
+    return () => {
+      unsubscribeInventory();
+      unsubscribeSuppliers();
+    };
   }, [loadData]);
+
+  useEffect(() => {
+    const supplierId = searchParams.get("supplierId") ?? "";
+    const supplierProductId = searchParams.get("supplierProductId") ?? "";
+
+    if (supplierId && supplierProductId) {
+      setInitialSupplierId(supplierId);
+      setInitialSupplierProductId(supplierProductId);
+      setShowModal(true);
+    }
+  }, [searchParams]);
+
+  const clearModalPrefill = () => {
+    setInitialSupplierId("");
+    setInitialSupplierProductId("");
+
+    if (
+      searchParams.get("supplierId") ||
+      searchParams.get("supplierProductId")
+    ) {
+      router.replace(INVENTORY_ROUTE);
+    }
+  };
+
+  const closeAddProductModal = () => {
+    setShowModal(false);
+    clearModalPrefill();
+  };
+
+  const toggleListFilter = (
+    currentValues: string[],
+    value: string,
+    setter: (values: string[]) => void,
+  ) => {
+    if (currentValues.includes(value)) {
+      setter(currentValues.filter((entry) => entry !== value));
+      return;
+    }
+
+    setter([...currentValues, value]);
+  };
 
   const addProduct = async (payload: {
     supplierProductId: string;
@@ -86,7 +181,7 @@ export default function Page() {
     try {
       await createInventoryStockCommand(payload).execute();
       toast.success("Product has been saved");
-      await loadData();
+      await loadData(true);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -100,8 +195,8 @@ export default function Page() {
     try {
       await deleteInventoryStockCommand(id).execute();
       toast.success("Product has been deleted");
-      setPendingDeleteId(null);
-      await loadData();
+      setPendingDeleteProduct(null);
+      await loadData(true);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -112,29 +207,97 @@ export default function Page() {
   };
 
   const requestDeleteProduct = (id: string) => {
-    setPendingDeleteId(id);
+    const product = products.find((item) => item.id === id);
+    if (!product) {
+      return;
+    }
+
+    setPendingDeleteProduct(product);
   };
+
+  const setProductArchived = async (id: string, archived: boolean) => {
+    try {
+      await setInventoryStockArchivedCommand(id, archived).execute();
+      toast.success(archived ? "Product archived" : "Product restored");
+      await loadData(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update archive status",
+      );
+    }
+  };
+
+  const quickCheckout = (inventoryId: string) => {
+    const params = new URLSearchParams({ inventoryId });
+    router.push(`/dashboard/checkout?${params.toString()}`);
+  };
+
+  const tabProducts = useMemo(
+    () =>
+      products.filter((product) =>
+        activeTab === "archived"
+          ? Boolean(product.archivedAt)
+          : !product.archivedAt,
+      ),
+    [activeTab, products],
+  );
 
   const filteredProducts = useMemo(
     () =>
-      filterInventoryProducts(products, {
+      filterInventoryProducts(tabProducts, {
         search,
-        categoryFilter,
-        statusFilter,
-        allCategoryLabel: "All",
-        allStatusLabel: "All",
+        categoryFilters,
+        statusFilters,
+        expirationSort,
       }),
-    [products, search, categoryFilter, statusFilter],
+    [tabProducts, search, categoryFilters, statusFilters, expirationSort],
   );
 
+  const {
+    items: paginatedProducts,
+    totalPages,
+    page: safePage,
+  } = useMemo(
+    () => paginateItems(filteredProducts, currentPage, PAGINATION_PAGE_SIZE),
+    [filteredProducts, currentPage],
+  );
+
+  useEffect(() => {
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilters, statusFilters, expirationSort, activeTab]);
+
   const categories = useMemo(
-    () => ["All", ...new Set(products.map((p) => p.category))],
+    () => [...new Set(tabProducts.map((p) => p.category))],
+    [tabProducts],
+  );
+
+  const loading = loadingInventory || loadingSuppliers;
+
+  const existingBatchIds = useMemo(
+    () => products.map((product) => product.batchId),
     [products],
   );
-  const statuses = useMemo(
-    () => ["All", "In Stock", "Low Stock", "Out of Stock"],
-    [],
+
+  const activeCount = useMemo(
+    () => products.filter((product) => !product.archivedAt).length,
+    [products],
   );
+
+  const archivedCount = useMemo(
+    () => products.filter((product) => Boolean(product.archivedAt)).length,
+    [products],
+  );
+
+  const clearCategoryFilters = () => setCategoryFilters([]);
+  const clearStatusFilters = () => setStatusFilters([]);
 
   return (
     <div className="space-y-6">
@@ -142,11 +305,40 @@ export default function Page() {
         <h1 className="text-3xl font-semibold tracking-tight">
           Inventory Management
         </h1>
-      <p className="text-sm text-muted-foreground">
-        {loading
-          ? "Loading inventory..."
-          : `${filteredProducts.length} of ${products.length} products`}
-      </p>
+        <p className="text-sm text-muted-foreground">
+          {loading
+            ? "Loading inventory..."
+            : `${filteredProducts.length} of ${tabProducts.length} products`}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant={activeTab === "active" ? "default" : "outline"}
+          className={
+            activeTab === "active"
+              ? "bg-emerald-700 text-white hover:bg-emerald-800"
+              : ""
+          }
+          onClick={() => setActiveTab("active")}
+        >
+          <Package2 className="h-4 w-4" />
+          Active ({activeCount})
+        </Button>
+        <Button
+          type="button"
+          variant={activeTab === "archived" ? "default" : "outline"}
+          className={
+            activeTab === "archived"
+              ? "bg-slate-700 text-white hover:bg-slate-800"
+              : ""
+          }
+          onClick={() => setActiveTab("archived")}
+        >
+          <Archive className="h-4 w-4" />
+          Archive ({archivedCount})
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -161,36 +353,97 @@ export default function Page() {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[420px]">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[560px]">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="justify-start">
+                {categoryFilters.length > 0
+                  ? `${categoryFilters.length} category selected`
+                  : "All Categories"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuLabel>Category Filters</DropdownMenuLabel>
+              <DropdownMenuSeparator />
               {categories.map((category) => (
-                <SelectItem key={category} value={category}>
+                <DropdownMenuCheckboxItem
+                  key={category}
+                  checked={categoryFilters.includes(category)}
+                  onCheckedChange={() =>
+                    toggleListFilter(
+                      categoryFilters,
+                      category,
+                      setCategoryFilters,
+                    )
+                  }
+                >
                   {category}
-                </SelectItem>
+                </DropdownMenuCheckboxItem>
               ))}
-            </SelectContent>
-          </Select>
+              <DropdownMenuSeparator />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={clearCategoryFilters}
+              >
+                Clear filter
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((status) => (
-                <SelectItem key={status} value={status}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="justify-start">
+                {statusFilters.length > 0
+                  ? `${statusFilters.length} status selected`
+                  : "All Status"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuLabel>Status Filters</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {STATUS_OPTIONS.map((status) => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={statusFilters.includes(status)}
+                  onCheckedChange={() =>
+                    toggleListFilter(statusFilters, status, setStatusFilters)
+                  }
+                >
                   {status}
-                </SelectItem>
+                </DropdownMenuCheckboxItem>
               ))}
-            </SelectContent>
-          </Select>
+              <DropdownMenuSeparator />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={clearStatusFilters}
+              >
+                Clear filter
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Button
-          onClick={() => setShowModal(true)}
+          type="button"
+          variant="outline"
+          onClick={() =>
+            setExpirationSort((current) => (current === "asc" ? "desc" : "asc"))
+          }
+        >
+          <ArrowUpDown className="h-4 w-4" />
+          Expiration {expirationSort === "asc"}
+        </Button>
+
+        <Button
+          onClick={() => {
+            setShowModal(true);
+          }}
           className="bg-emerald-700 text-white hover:bg-emerald-800"
         >
           <Plus className="h-4 w-4" />
@@ -199,44 +452,70 @@ export default function Page() {
       </div>
 
       <InventoryTable
-        products={filteredProducts}
+        products={paginatedProducts}
         deleteProduct={requestDeleteProduct}
+        setProductArchived={setProductArchived}
+        quickCheckout={quickCheckout}
+        isArchivedView={activeTab === "archived"}
+      />
+
+      <PaginationControls
+        currentPage={safePage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
       />
 
       <AddProductModal
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={closeAddProductModal}
         onAdd={addProduct}
         suppliers={suppliers}
+        initialSupplierId={initialSupplierId || undefined}
+        initialSupplierProductId={initialSupplierProductId || undefined}
+        existingBatchIds={existingBatchIds}
       />
 
-      {pendingDeleteId && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="w-[370px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
-            <p className="text-sm font-medium text-slate-900">
+      <Dialog
+        open={Boolean(pendingDeleteProduct)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteProduct(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[430px]">
+          <DialogHeader>
+            <DialogTitle>
               Are you sure you want to delete this product?
-            </p>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPendingDeleteId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  void deleteProduct(pendingDeleteId);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogTitle>
+            <DialogDescription>
+              This will remove this product from the supplier&apos;s list. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingDeleteProduct(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!pendingDeleteProduct) {
+                  return;
+                }
+
+                void deleteProduct(pendingDeleteProduct.id);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -128,9 +128,17 @@ export async function deleteSupplierProduct(id: string) {
   });
 }
 
-export async function fetchInventoryStocks() {
+export async function fetchInventoryStocks(options?: {
+  includeArchived?: boolean;
+}) {
+  const searchParams = new URLSearchParams();
+  if (options?.includeArchived) {
+    searchParams.set("includeArchived", "true");
+  }
+
+  const query = searchParams.toString();
   const data = await request<{ items: InventoryStockRecord[] }>(
-    "/api/inventory",
+    query ? `/api/inventory?${query}` : "/api/inventory",
   );
   return data.items;
 }
@@ -147,6 +155,13 @@ export async function createInventoryStock(
 export async function deleteInventoryStock(id: string) {
   return request<{ deleted: true }>(`/api/inventory/${id}`, {
     method: "DELETE",
+  });
+}
+
+export async function setInventoryStockArchived(id: string, archived: boolean) {
+  return request<InventoryStockRecord>(`/api/inventory/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived }),
   });
 }
 

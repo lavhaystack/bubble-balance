@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  isValidEmail,
+  isValidPhilippinePhone,
+  normalizePhilippinePhone,
+} from "@/lib/validation/form-validators";
 
 const nonEmptyString = z.string().trim().min(1);
 const optionalDateString = z
@@ -14,8 +19,15 @@ export const supplierIdSchema = z.object({
 export const createSupplierSchema = z.object({
   name: nonEmptyString.max(160),
   contactPerson: nonEmptyString.max(160),
-  email: z.string().trim().email().max(200),
-  phone: nonEmptyString.max(80),
+  email: z
+    .string()
+    .trim()
+    .max(200)
+    .refine(isValidEmail, "Enter a valid email address"),
+  phone: nonEmptyString
+    .max(80)
+    .transform(normalizePhilippinePhone)
+    .refine(isValidPhilippinePhone, "Use +639XXXXXXXXX or 09XXXXXXXXX"),
 });
 
 export const updateSupplierSchema = createSupplierSchema
@@ -63,6 +75,10 @@ export const updateInventoryStockSchema = createInventoryStockSchema
     message: "Provide at least one field to update",
   });
 
+export const updateInventoryArchiveSchema = z.object({
+  archived: z.boolean(),
+});
+
 export const checkoutLineSchema = z.object({
   inventoryId: z.string().uuid("Invalid inventory id"),
   quantity: z.coerce.number().int().min(1),
@@ -85,5 +101,8 @@ export type CreateInventoryStockInput = z.infer<
 >;
 export type UpdateInventoryStockInput = z.infer<
   typeof updateInventoryStockSchema
+>;
+export type UpdateInventoryArchiveInput = z.infer<
+  typeof updateInventoryArchiveSchema
 >;
 export type CheckoutConfirmInput = z.infer<typeof checkoutConfirmSchema>;

@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, MoreVertical, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import PaginationControls from "@/components/shared/pagination-controls";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { formatPhpCurrency } from "@/lib/currency";
 import type { SupplierRecord } from "@/lib/dashboard-types";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
 
 type SupplierTableProps = {
   rows: SupplierRecord[];
@@ -29,6 +31,7 @@ type SupplierTableProps = {
   onEditSupplier: (supplierId: string) => void;
   onRequestRemoveSupplier: (supplierId: string) => void;
   onEditSupplierProduct: (productId: string) => void;
+  onAddProductToInventory: (supplierId: string, productId: string) => void;
   onRequestRemoveSupplierProduct: (
     supplierId: string,
     productId: string,
@@ -44,8 +47,18 @@ export default function SupplierTable({
   onEditSupplier,
   onRequestRemoveSupplier,
   onEditSupplierProduct,
+  onAddProductToInventory,
   onRequestRemoveSupplierProduct,
 }: SupplierTableProps) {
+  const [productPages, setProductPages] = useState<Record<string, number>>({});
+
+  const setProductPage = (supplierId: string, page: number) => {
+    setProductPages((current) => ({
+      ...current,
+      [supplierId]: page,
+    }));
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <Table>
@@ -63,6 +76,11 @@ export default function SupplierTable({
         <TableBody>
           {rows.map((supplier) => {
             const isExpanded = Boolean(expandedIds[supplier.id]);
+            const productPagination = paginateItems(
+              supplier.products,
+              productPages[supplier.id] ?? 1,
+              PAGINATION_PAGE_SIZE,
+            );
 
             return (
               <Fragment key={supplier.id}>
@@ -134,8 +152,8 @@ export default function SupplierTable({
                           No products listed yet.
                         </p>
                       ) : (
-                        <div className="space-y-1">
-                          {supplier.products.map((product) => (
+                        <div className="space-y-2">
+                          {productPagination.items.map((product) => (
                             <div
                               key={product.id}
                               className="flex items-center justify-between rounded-md px-3 py-2 text-sm"
@@ -167,6 +185,16 @@ export default function SupplierTable({
                                   >
                                     <DropdownMenuItem
                                       onClick={() =>
+                                        onAddProductToInventory(
+                                          supplier.id,
+                                          product.id,
+                                        )
+                                      }
+                                    >
+                                      Add to Inventory
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
                                         onEditSupplierProduct(product.id)
                                       }
                                     >
@@ -189,6 +217,15 @@ export default function SupplierTable({
                               </div>
                             </div>
                           ))}
+
+                          <PaginationControls
+                            currentPage={productPagination.page}
+                            totalPages={productPagination.totalPages}
+                            onPageChange={(page) =>
+                              setProductPage(supplier.id, page)
+                            }
+                            className="pt-2"
+                          />
                         </div>
                       )}
 

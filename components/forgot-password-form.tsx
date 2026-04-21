@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
+import { getEmailValidationError } from "@/lib/validation/form-validators";
 
 export function ForgotPasswordForm({
   className,
@@ -29,6 +30,13 @@ export function ForgotPasswordForm({
     const supabase = createClient();
     setIsLoading(true);
     setError(null);
+
+    const emailError = getEmailValidationError(email);
+    if (emailError) {
+      setError(emailError);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // The url which will be included in the email. This URL needs to be configured in your redirect URLs in the Supabase dashboard at https://supabase.com/dashboard/project/_/auth/url-configuration

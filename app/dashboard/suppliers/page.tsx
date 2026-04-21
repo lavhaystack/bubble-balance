@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import AddProductModal from "./components/AddProductModal";
 import SupplierTable from "./components/SupplierTable";
+import PaginationControls from "@/components/shared/pagination-controls";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +29,13 @@ import {
   updateSupplierProductCommand,
 } from "@/lib/dashboard-client-commands";
 import { normalizePriceInput } from "@/lib/currency";
+import { dashboardDataCache } from "@/lib/dashboard-data-cache";
 import type { SupplierRecord } from "@/lib/dashboard-types";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import {
+  getEmailValidationError,
+  getPhilippinePhoneValidationError,
+} from "@/lib/validation/form-validators";
 
 type SupplierForm = {
   name: string;
@@ -77,9 +85,12 @@ const slugifySku = (value: string) =>
     .slice(0, 8) || "PRD";
 
 export default function SuppliersPage() {
+  const router = useRouter();
+
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
@@ -103,12 +114,30 @@ export default function SuppliersPage() {
     Partial<Record<keyof SupplierProductForm, string>>
   >({});
 
-  const loadSuppliers = useCallback(async () => {
+  const loadSuppliers = useCallback(async (force = false) => {
     try {
-      setLoading(true);
-      const items = await fetchSuppliers();
-      setSuppliers(items);
+      await dashboardDataCache.suppliers.getOrLoad(
+        () => fetchSuppliers(),
+        force,
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load suppliers",
+      );
+    }
+  }, []);
 
+  useEffect(() => {
+    const unsubscribe = dashboardDataCache.suppliers.subscribe((snapshot) => {
+      setLoading(snapshot.loading && snapshot.data === null);
+
+      if (!snapshot.data) {
+        return;
+      }
+
+      const items = snapshot.data;
+
+      setSuppliers(items);
       setExpandedIds((prev) => {
         const next = { ...prev };
         items.slice(0, 2).forEach((supplier) => {
@@ -118,17 +147,13 @@ export default function SuppliersPage() {
         });
         return next;
       });
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load suppliers",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
 
-  useEffect(() => {
     void loadSuppliers();
+
+    return () => {
+      unsubscribe();
+    };
   }, [loadSuppliers]);
 
   const allSkus = useMemo(() => {
@@ -225,7 +250,7 @@ export default function SuppliersPage() {
       await deleteSupplierCommand(supplierId).execute();
       toast.success("Supplier has been deleted");
       setPendingRemoveSupplierId(null);
-      await loadSuppliers();
+      await loadSuppliers(true);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete supplier",
@@ -242,11 +267,14 @@ export default function SuppliersPage() {
     if (!form.contactPerson.trim()) {
       nextErrors.contactPerson = "Contact Person is required";
     }
-    if (!form.email.trim()) {
-      nextErrors.email = "Email is required";
+    const emailError = getEmailValidationError(form.email);
+    if (emailError) {
+      nextErrors.email = emailError;
     }
-    if (!form.phone.trim()) {
-      nextErrors.phone = "Phone number is required";
+
+    const phoneError = getPhilippinePhoneValidationError(form.phone);
+    if (phoneError) {
+      nextErrors.phone = phoneError;
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -271,7 +299,7 @@ export default function SuppliersPage() {
       }
 
       handleCloseModal();
-      await loadSuppliers();
+      await loadSuppliers(true);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to save supplier",
@@ -404,7 +432,7 @@ export default function SuppliersPage() {
         }
 
         handleCloseProductModal();
-        await loadSuppliers();
+        await loadSuppliers(true);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Failed to save product",
@@ -420,12 +448,41 @@ export default function SuppliersPage() {
       await deleteSupplierProductCommand(productId).execute();
       toast.success("Product has been deleted");
       setPendingRemoveProduct(null);
-      await loadSuppliers();
+      await loadSuppliers(true);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete product",
       );
     }
+  };
+
+  const {
+    items: paginatedSuppliers,
+    totalPages,
+    page: safePage,
+  } = useMemo(
+    () => paginateItems(suppliers, currentPage, PAGINATION_PAGE_SIZE),
+    [suppliers, currentPage],
+  );
+
+  useEffect(() => {
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
+
+  const pendingSupplier = useMemo(
+    () => suppliers.find((supplier) => supplier.id === pendingRemoveSupplierId),
+    [suppliers, pendingRemoveSupplierId],
+  );
+
+  const addProductToInventory = (supplierId: string, productId: string) => {
+    const params = new URLSearchParams({
+      supplierId,
+      supplierProductId: productId,
+    });
+
+    router.push(`/dashboard/inventory?${params.toString()}`);
   };
 
   return (
@@ -452,13 +509,14 @@ export default function SuppliersPage() {
       </div>
 
       <SupplierTable
-        rows={suppliers}
+        rows={paginatedSuppliers}
         expandedIds={expandedIds}
         onToggleExpanded={toggleExpanded}
         onOpenAddProductModal={openAddProductModal}
         onEditSupplier={openEditSupplierModal}
         onRequestRemoveSupplier={setPendingRemoveSupplierId}
         onEditSupplierProduct={openEditSupplierProductModal}
+        onAddProductToInventory={addProductToInventory}
         onRequestRemoveSupplierProduct={(
           supplierId,
           productId,
@@ -470,6 +528,12 @@ export default function SuppliersPage() {
             productName,
           });
         }}
+      />
+
+      <PaginationControls
+        currentPage={safePage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
       />
 
       {!loading && suppliers.length === 0 && (
@@ -588,63 +652,101 @@ export default function SuppliersPage() {
         submitLabel={editingProductId ? "Save Changes" : "Save Product"}
       />
 
-      {pendingRemoveSupplierId && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="w-[380px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
-            <p className="text-sm font-medium text-slate-900">
-              Are you sure you want to remove supplier
-            </p>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPendingRemoveSupplierId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  void removeSupplier(pendingRemoveSupplierId);
-                }}
-              >
-                Remove
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog
+        open={Boolean(pendingRemoveSupplierId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemoveSupplierId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[430px]">
+          <DialogHeader>
+            <DialogTitle>
+              Are you sure you want to delete this supplier?
+            </DialogTitle>
+            <DialogDescription>
+              This will remove this supplier from your supplier list. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
 
-      {pendingRemoveProduct && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="w-[420px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
-            <p className="text-sm font-medium text-slate-900">
-              Are you sure you want to remove {pendingRemoveProduct.productName}?
+          {pendingSupplier && (
+            <p className="text-sm text-slate-600">
+              Supplier: {pendingSupplier.name}
             </p>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPendingRemoveProduct(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  void removeSupplierProductById(
-                    pendingRemoveProduct.productId,
-                  );
-                }}
-              >
-                Remove
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
+
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingRemoveSupplierId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!pendingRemoveSupplierId) {
+                  return;
+                }
+
+                void removeSupplier(pendingRemoveSupplierId);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingRemoveProduct)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemoveProduct(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[430px]">
+          <DialogHeader>
+            <DialogTitle>
+              Are you sure you want to delete this product?
+            </DialogTitle>
+            <DialogDescription>
+              This will remove this product from the supplier&apos;s list. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingRemoveProduct && (
+            <p className="text-sm text-slate-600">
+              Product: {pendingRemoveProduct.productName}
+            </p>
+          )}
+
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingRemoveProduct(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!pendingRemoveProduct) {
+                  return;
+                }
+
+                void removeSupplierProductById(pendingRemoveProduct.productId);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
