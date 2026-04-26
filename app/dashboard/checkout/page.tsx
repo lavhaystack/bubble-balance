@@ -283,7 +283,10 @@ export default function CheckoutPage() {
             </div>
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-11 w-full border-slate-200 bg-white sm:w-[190px]">
+              <SelectTrigger
+                aria-label="Filter products by category"
+                className="h-11 w-full border-slate-200 bg-white sm:w-[190px]"
+              >
                 <SelectValue placeholder={ALL_CATEGORIES} />
               </SelectTrigger>
               <SelectContent>
@@ -385,7 +388,7 @@ export default function CheckoutPage() {
               {checkoutItems.length === 0 ? (
                 <div className="flex h-[130px] flex-col items-center justify-center rounded-md border border-slate-200 text-slate-400">
                   <ShoppingCart className="h-11 w-11" />
-                  <p className="mt-2 text-base">No items in cart</p>
+                  <p className="mt-2 text-base text-slate-600">No items in cart</p>
                 </div>
               ) : (
                 <div className="space-y-3">
