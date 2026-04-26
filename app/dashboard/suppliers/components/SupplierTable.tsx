@@ -37,6 +37,7 @@ type SupplierTableProps = {
     productId: string,
     productName: string,
   ) => void;
+  loading?: boolean;
 };
 
 export default function SupplierTable({
@@ -49,6 +50,7 @@ export default function SupplierTable({
   onEditSupplierProduct,
   onAddProductToInventory,
   onRequestRemoveSupplierProduct,
+  loading = false,
 }: SupplierTableProps) {
   const [productPages, setProductPages] = useState<Record<string, number>>({});
 
@@ -74,6 +76,16 @@ export default function SupplierTable({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="h-20 text-center text-muted-foreground"
+              >
+                {loading ? "Loading..." : "No suppliers match your filters."}
+              </TableCell>
+            </TableRow>
+          )}
           {rows.map((supplier) => {
             const isExpanded = Boolean(expandedIds[supplier.id]);
             const productPagination = paginateItems(

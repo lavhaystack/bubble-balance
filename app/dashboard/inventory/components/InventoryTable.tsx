@@ -17,6 +17,7 @@ type InventoryTableProps = {
   setProductArchived: (id: string, archived: boolean) => void;
   quickCheckout: (id: string) => void;
   isArchivedView: boolean;
+  loading?: boolean;
 };
 
 export default function InventoryTable({
@@ -25,6 +26,7 @@ export default function InventoryTable({
   setProductArchived,
   quickCheckout,
   isArchivedView,
+  loading = false,
 }: InventoryTableProps) {
   return (
     <Card className="overflow-hidden border-slate-200 shadow-sm">
@@ -60,7 +62,7 @@ export default function InventoryTable({
                   colSpan={9}
                   className="h-20 text-center text-muted-foreground"
                 >
-                  No products match your filters.
+                  {loading ? "Loading..." : "No products match your filters."}
                 </TableCell>
               </TableRow>
             )}
