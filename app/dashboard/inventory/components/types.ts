@@ -14,7 +14,9 @@ export type Product = {
   quantity: number;
   unit: string;
   price: number;
+  initialQuantity: number;
   expiration: string;
+  archivedAt: string | null;
   supplier: string;
   batchId: string;
   reorderLevel: number;

@@ -18,14 +18,14 @@ export type InventoryFilterableProduct = {
   batchId: string;
   category: string;
   quantity: number;
+  expiration: string;
 };
 
 export type InventoryFilterCriteria = {
   search: string;
-  categoryFilter: string;
-  statusFilter: string;
-  allCategoryLabel: string;
-  allStatusLabel: string;
+  categoryFilters: string[];
+  statusFilters: string[];
+  expirationSort: "none" | "asc" | "desc";
 };
 
 class CheckoutSearchStrategy implements FilterStrategy<
@@ -92,13 +92,13 @@ class InventoryCategoryStrategy implements FilterStrategy<
     items: InventoryFilterableProduct[],
     criteria: InventoryFilterCriteria,
   ) {
-    if (criteria.categoryFilter === criteria.allCategoryLabel) {
+    if (criteria.categoryFilters.length === 0) {
       return items;
     }
 
-    return items.filter(
-      (product) => product.category === criteria.categoryFilter,
-    );
+    const selectedCategories = new Set(criteria.categoryFilters);
+
+    return items.filter((product) => selectedCategories.has(product.category));
   }
 }
 
@@ -110,14 +110,42 @@ class InventoryStatusStrategy implements FilterStrategy<
     items: InventoryFilterableProduct[],
     criteria: InventoryFilterCriteria,
   ) {
-    if (criteria.statusFilter === criteria.allStatusLabel) {
+    if (criteria.statusFilters.length === 0) {
       return items;
     }
 
-    return items.filter(
-      (product) =>
-        getStockStatusByQuantity(product.quantity) === criteria.statusFilter,
+    const selectedStatuses = new Set(criteria.statusFilters);
+
+    return items.filter((product) =>
+      selectedStatuses.has(getStockStatusByQuantity(product.quantity)),
     );
+  }
+}
+
+class InventoryExpirationStrategy implements FilterStrategy<
+  InventoryFilterableProduct,
+  InventoryFilterCriteria
+> {
+  apply(
+    items: InventoryFilterableProduct[],
+    criteria: InventoryFilterCriteria,
+  ) {
+    if (criteria.expirationSort === "none") {
+      return items;
+    }
+
+    const direction = criteria.expirationSort === "asc" ? 1 : -1;
+
+    return [...items].sort((a, b) => {
+      const aExpiry = a.expiration
+        ? new Date(a.expiration).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const bExpiry = b.expiration
+        ? new Date(b.expiration).getTime()
+        : Number.MAX_SAFE_INTEGER;
+
+      return (aExpiry - bExpiry) * direction;
+    });
   }
 }
 
@@ -125,12 +153,25 @@ const checkoutStrategies: ReadonlyArray<
   FilterStrategy<InventoryStockRecord, CheckoutFilterCriteria>
 > = [new CheckoutSearchStrategy(), new CheckoutCategoryStrategy()];
 
-const inventoryStrategies: ReadonlyArray<
-  FilterStrategy<InventoryFilterableProduct, InventoryFilterCriteria>
+const inventoryStrategyFactories: ReadonlyArray<
+  (
+    criteria: InventoryFilterCriteria,
+  ) => FilterStrategy<
+    InventoryFilterableProduct,
+    InventoryFilterCriteria
+  > | null
 > = [
-  new InventorySearchStrategy(),
-  new InventoryCategoryStrategy(),
-  new InventoryStatusStrategy(),
+  (criteria) => (criteria.search.trim() ? new InventorySearchStrategy() : null),
+  (criteria) =>
+    criteria.categoryFilters.length > 0
+      ? new InventoryCategoryStrategy()
+      : null,
+  (criteria) =>
+    criteria.statusFilters.length > 0 ? new InventoryStatusStrategy() : null,
+  (criteria) =>
+    criteria.expirationSort !== "none"
+      ? new InventoryExpirationStrategy()
+      : null,
 ];
 
 export function filterCheckoutProducts(
@@ -144,7 +185,18 @@ export function filterInventoryProducts<T extends InventoryFilterableProduct>(
   products: T[],
   criteria: InventoryFilterCriteria,
 ) {
-  const typedStrategies = inventoryStrategies as ReadonlyArray<
+  const dynamicStrategies = inventoryStrategyFactories
+    .map((createStrategy) => createStrategy(criteria))
+    .filter(
+      (
+        strategy,
+      ): strategy is FilterStrategy<
+        InventoryFilterableProduct,
+        InventoryFilterCriteria
+      > => Boolean(strategy),
+    );
+
+  const typedStrategies = dynamicStrategies as unknown as ReadonlyArray<
     FilterStrategy<T, InventoryFilterCriteria>
   >;
 

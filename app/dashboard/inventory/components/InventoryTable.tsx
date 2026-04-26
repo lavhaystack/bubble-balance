@@ -14,11 +14,19 @@ import {
 type InventoryTableProps = {
   products: Product[];
   deleteProduct: (id: string) => void;
+  setProductArchived: (id: string, archived: boolean) => void;
+  quickCheckout: (id: string) => void;
+  isArchivedView: boolean;
+  loading?: boolean;
 };
 
 export default function InventoryTable({
   products,
   deleteProduct,
+  setProductArchived,
+  quickCheckout,
+  isArchivedView,
+  loading = false,
 }: InventoryTableProps) {
   return (
     <Card className="overflow-hidden border-slate-200 shadow-sm">
@@ -43,6 +51,9 @@ export default function InventoryTable({
                 key={product.id}
                 product={product}
                 deleteProduct={deleteProduct}
+                setProductArchived={setProductArchived}
+                quickCheckout={quickCheckout}
+                isArchivedView={isArchivedView}
               />
             ))}
             {products.length === 0 && (
@@ -51,7 +62,7 @@ export default function InventoryTable({
                   colSpan={9}
                   className="h-20 text-center text-muted-foreground"
                 >
-                  No products match your filters.
+                  {loading ? "Loading..." : "No products match your filters."}
                 </TableCell>
               </TableRow>
             )}

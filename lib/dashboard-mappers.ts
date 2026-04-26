@@ -29,8 +29,10 @@ type SupplierProductRow = {
 type InventoryRow = {
   id: string;
   quantity: number;
+  initial_quantity: number | null;
   batch_id: string;
   expiration: string | null;
+  archived_at: string | null;
   reorder_level: number;
   supplier_product_id: string;
   created_at: string;
@@ -153,8 +155,10 @@ export function mapInventoryRow(
     unit: product.unit ?? "unit",
     price: Number(product.price),
     quantity: row.quantity,
+    initialQuantity: row.initial_quantity ?? row.quantity,
     batchId: row.batch_id,
     expiration: row.expiration ?? "",
+    archivedAt: row.archived_at,
     reorderLevel: row.reorder_level,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

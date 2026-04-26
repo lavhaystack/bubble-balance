@@ -1,4 +1,11 @@
-import { CalendarDays, MoreVertical, Trash2 } from "lucide-react";
+import {
+  Archive,
+  CalendarDays,
+  MoreVertical,
+  ShoppingCart,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +23,9 @@ import { getStockStatus, type Product } from "./types";
 type ProductRowProps = {
   product: Product;
   deleteProduct: (id: string) => void;
+  setProductArchived: (id: string, archived: boolean) => void;
+  quickCheckout: (id: string) => void;
+  isArchivedView: boolean;
 };
 
 const formatDate = (value: string) => {
@@ -34,22 +44,28 @@ const isExpiringSoon = (value: string) => {
 
   const now = new Date();
   const threshold = new Date();
-  threshold.setDate(now.getDate() + 120);
+  threshold.setDate(now.getDate() + 150);
   return parsed <= threshold;
 };
 
 const statusStyles: Record<string, string> = {
-  "In Stock": "border-transparent bg-slate-100 text-slate-800",
-  "Low Stock": "border-transparent bg-slate-900 text-slate-50",
-  "Out of Stock": "border-transparent bg-rose-100 text-rose-700",
+  "In Stock":
+    "border-transparent bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+  "Low Stock": "border-transparent bg-blue-100 text-blue-700 hover:bg-blue-200",
+  "Out of Stock":
+    "border-transparent bg-rose-100 text-rose-700 hover:bg-rose-200",
 };
 
 export default function ProductRow({
   product,
   deleteProduct,
+  setProductArchived,
+  quickCheckout,
+  isArchivedView,
 }: ProductRowProps) {
   const status = getStockStatus(product);
   const expirationSoon = isExpiringSoon(product.expiration);
+  const canArchive = status === "Out of Stock";
 
   return (
     <TableRow>
@@ -69,7 +85,7 @@ export default function ProductRow({
       </TableCell>
       <TableCell>{product.category}</TableCell>
       <TableCell>
-        {product.quantity} {product.unit}
+        {product.quantity}/{product.initialQuantity} {product.unit}
       </TableCell>
       <TableCell>{formatPhpCurrency(product.price)}</TableCell>
       <TableCell>
@@ -95,6 +111,29 @@ export default function ProductRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              disabled={product.quantity <= 0 || isArchivedView}
+              onClick={() => quickCheckout(product.id)}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Quick checkout
+            </DropdownMenuItem>
+            {isArchivedView ? (
+              <DropdownMenuItem
+                onClick={() => setProductArchived(product.id, false)}
+              >
+                <Undo2 className="h-4 w-4" />
+                Unarchive
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                disabled={!canArchive}
+                onClick={() => setProductArchived(product.id, true)}
+              >
+                <Archive className="h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="text-red-600 focus:text-red-600"
               onClick={() => deleteProduct(product.id)}

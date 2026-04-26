@@ -12,6 +12,7 @@ import {
   deleteInventoryStock,
   deleteSupplier,
   deleteSupplierProduct,
+  setInventoryStockArchived,
   updateSupplier,
   updateSupplierProduct,
 } from "@/lib/dashboard-api";
@@ -65,6 +66,13 @@ export function createInventoryStockCommand(
 
 export function deleteInventoryStockCommand(id: string) {
   return new AsyncActionCommand(() => deleteInventoryStock(id));
+}
+
+export function setInventoryStockArchivedCommand(
+  id: string,
+  archived: boolean,
+) {
+  return new AsyncActionCommand(() => setInventoryStockArchived(id, archived));
 }
 
 export function confirmCheckoutCommand(items: CheckoutLinePayload[]) {

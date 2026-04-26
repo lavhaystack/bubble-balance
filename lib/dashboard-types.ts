@@ -32,8 +32,10 @@ export type InventoryStockRecord = {
   unit: string;
   price: number;
   quantity: number;
+  initialQuantity: number;
   batchId: string;
   expiration: string;
+  archivedAt: string | null;
   reorderLevel: number;
   createdAt: string;
   updatedAt: string;

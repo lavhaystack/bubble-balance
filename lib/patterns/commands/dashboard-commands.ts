@@ -3,6 +3,7 @@ import type {
   CreateInventoryStockInput,
   CreateSupplierInput,
   CreateSupplierProductInput,
+  UpdateInventoryArchiveInput,
   UpdateSupplierInput,
   UpdateSupplierProductInput,
 } from "@/lib/api/schemas";
@@ -112,6 +113,18 @@ export class DeleteInventoryStockCommand implements Command<{ deleted: true }> {
   async execute() {
     await this.repository.delete(this.id);
     return { deleted: true } as const;
+  }
+}
+
+export class UpdateInventoryArchiveCommand implements Command<InventoryStockRecord> {
+  constructor(
+    private readonly repository: InventoryRepository,
+    private readonly id: string,
+    private readonly payload: UpdateInventoryArchiveInput,
+  ) {}
+
+  async execute() {
+    return this.repository.setArchived(this.id, this.payload);
   }
 }
 
