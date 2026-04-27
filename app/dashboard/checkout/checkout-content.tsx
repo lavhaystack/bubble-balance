@@ -281,7 +281,7 @@ export default function CheckoutContent() {
   };
 
   useEffect(() => {
-    const inventoryId = searchParams.get("inventoryId");
+    const inventoryId = searchParams?.get("inventoryId");
     if (!inventoryId) {
       return;
     }
