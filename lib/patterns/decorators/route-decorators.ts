@@ -15,7 +15,13 @@ export function withErrorBoundary<TArgs extends unknown[]>(
     try {
       return await handler(...args);
     } catch (error) {
-      if (error instanceof ZodError) {
+        // In tests it's helpful to see the raw error for debugging
+        if (process.env.NODE_ENV === "test") {
+          // eslint-disable-next-line no-console
+          console.error("Route handler error:", error);
+        }
+
+        if (error instanceof ZodError) {
         return fromZodError(error);
       }
 
