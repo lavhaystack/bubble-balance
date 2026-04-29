@@ -3,38 +3,20 @@
 import express from "express";
 import bodyParser from "body-parser";
 import request from "supertest";
+import { randomUUID } from "crypto";
+import { createClient } from "../lib/supabase/server";
 
-process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://example.com";
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "key";
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for tests");
+}
 
-jest.mock("../lib/patterns/repositories/dashboard-repository-factory", () => ({
-  SupabaseDashboardRepositoryFactory: jest.fn().mockImplementation(() => ({
-    createSupplierRepository: () => ({
-      list: async () => [
-        { id: "a1", name: "Supplier A", contactPerson: "Alice", email: "a@example.com", phone: "+639123456789" },
-      ],
-      create: async (payload: any) => ({ id: "s-1", ...payload }),
-      update: async (id: string, payload: any) => ({ id, ...payload }),
-      delete: async (id: string) => undefined,
-    }),
-  })),
+jest.mock("next/headers", () => ({
+  cookies: async () => ({
+    getAll: () => [],
+    set: () => undefined,
+  }),
 }));
 
-jest.mock("../lib/supabase/server", () => ({
-  createClient: jest.fn().mockResolvedValue({}),
-}));
-
-jest.mock("../lib/patterns/commands/dashboard-commands", () => ({
-  CreateSupplierCommand: jest.fn().mockImplementation((repo: any, payload: any) => ({
-    execute: async () => ({ id: "s-1", ...payload }),
-  })),
-  UpdateSupplierCommand: jest.fn().mockImplementation((repo: any, id: string, payload: any) => ({
-    execute: async () => ({ id, ...payload }),
-  })),
-  DeleteSupplierCommand: jest.fn().mockImplementation((repo: any, id: string) => ({
-    execute: async () => ({ deleted: true }),
-  })),
-}));
 
 import { GET, POST } from "../app/api/suppliers/route";
 import { PATCH as PATCH_SUPPLIER, DELETE as DELETE_SUPPLIER } from "../app/api/suppliers/[id]/route";
@@ -64,9 +46,19 @@ function makeApp() {
 
 describe("/api/suppliers", () => {
   let app: express.Express;
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  const supplierIds: string[] = [];
+  const runId = randomUUID();
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = makeApp();
+    supabase = await createClient();
+  });
+
+  afterAll(async () => {
+    if (supplierIds.length > 0) {
+      await supabase.from("suppliers").delete().in("id", supplierIds);
+    }
   });
 
   afterEach(() => {
@@ -77,36 +69,21 @@ describe("/api/suppliers", () => {
     const res = await (request(app) as any).get("/api/suppliers").expect(200);
     expect(res.body.ok).toBe(true);
     expect(Array.isArray(res.body.data.items)).toBe(true);
-    expect(res.body.data.items[0].name).toBe("Supplier A");
   });
 
   it("POST create happy path returns 201", async () => {
     const payload = {
-      name: "New Supplier",
+      name: `New Supplier ${runId}`,
       contactPerson: "Bob",
-      email: "bob@example.com",
+      email: `bob+${runId}@example.com`,
       phone: "+639111111111",
     };
 
-    // direct call to POST handler for debug
-    const directReq = new Request("http://localhost/api/suppliers", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const directRes = await POST(directReq as any, {} as any);
-    // eslint-disable-next-line no-console
-    console.error("direct POST status:", directRes.status, "body:", await directRes.json());
-
     const res = await request(app).post("/api/suppliers").send(payload);
-    if (res.status !== 201) {
-      // debug output for failing response
-      // eslint-disable-next-line no-console
-      console.error("POST /api/suppliers failed:", res.status, JSON.stringify(res.body, null, 2));
-    }
     expect(res.status).toBe(201);
     expect(res.body.ok).toBe(true);
     expect(res.body.data.name).toBe(payload.name);
+    supplierIds.push(res.body.data.id);
   });
 
   it("POST validation fails when missing fields", async () => {
@@ -117,7 +94,23 @@ describe("/api/suppliers", () => {
   });
 
   it("PATCH update happy path", async () => {
-    const id = "11111111-1111-4111-8111-111111111111";
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .insert({
+        name: `Update Supplier ${randomUUID()}`,
+        contact_person: "Update Contact",
+        email: `update+${randomUUID()}@example.com`,
+        phone: "+10000000000",
+      })
+      .select("id")
+      .single();
+
+    if (supplierError || !supplier) {
+      throw supplierError ?? new Error("Unable to create supplier for update test");
+    }
+
+    const id = supplier.id;
+    supplierIds.push(id);
     const payload = { name: "Updated" };
     const req = new Request("http://localhost/api/suppliers/" + id, {
       method: "PATCH",
@@ -133,7 +126,23 @@ describe("/api/suppliers", () => {
   });
 
   it("PATCH validation fails with empty payload", async () => {
-    const id = "11111111-1111-4111-8111-111111111111";
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .insert({
+        name: `Empty Update ${randomUUID()}`,
+        contact_person: "Empty Contact",
+        email: `empty+${randomUUID()}@example.com`,
+        phone: "+10000000000",
+      })
+      .select("id")
+      .single();
+
+    if (supplierError || !supplier) {
+      throw supplierError ?? new Error("Unable to create supplier for empty update test");
+    }
+
+    const id = supplier.id;
+    supplierIds.push(id);
     const req = new Request("http://localhost/api/suppliers/" + id, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -148,7 +157,22 @@ describe("/api/suppliers", () => {
   });
 
   it("DELETE returns deleted true", async () => {
-    const id = "11111111-1111-4111-8111-111111111111";
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .insert({
+        name: `Delete Supplier ${randomUUID()}`,
+        contact_person: "Delete Contact",
+        email: `delete+${randomUUID()}@example.com`,
+        phone: "+10000000000",
+      })
+      .select("id")
+      .single();
+
+    if (supplierError || !supplier) {
+      throw supplierError ?? new Error("Unable to create supplier for delete test");
+    }
+
+    const id = supplier.id;
     const req = new Request("http://localhost/api/suppliers/" + id, { method: "DELETE" });
     const nextRes = await DELETE_SUPPLIER(req as any, { params: Promise.resolve({ id }) } as any);
     const json = await nextRes.json();

@@ -19,7 +19,11 @@ type ApiFailure = {
 
 type FetchLike = typeof fetch;
 
-export function createApiRequester(fetchImpl: FetchLike = fetch) {
+const defaultFetch: FetchLike = (input, init) => {
+  return globalThis.fetch(input, init);
+};
+
+export function createApiRequester(fetchImpl: FetchLike = defaultFetch) {
   return async function request<T>(
     url: string,
     init?: RequestInit,

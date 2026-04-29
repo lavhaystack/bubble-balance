@@ -3,36 +3,20 @@
 import express from "express";
 import bodyParser from "body-parser";
 import request from "supertest";
+import { randomUUID } from "crypto";
+import { createClient } from "../lib/supabase/server";
 
-process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://example.com";
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "key";
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for tests");
+}
 
-jest.mock("../lib/patterns/repositories/dashboard-repository-factory", () => ({
-  SupabaseDashboardRepositoryFactory: jest.fn().mockImplementation(() => ({
-    createSupplierProductRepository: () => ({
-      create: async (payload: any) => ({ id: "p-1", ...payload }),
-      update: async (id: string, payload: any) => ({ id, ...payload }),
-      delete: async (id: string) => undefined,
-      listCategories: async (q: string) => ["cat1", "cat2"].filter((c) => c.includes(q)),
-    }),
-  })),
+jest.mock("next/headers", () => ({
+  cookies: async () => ({
+    getAll: () => [],
+    set: () => undefined,
+  }),
 }));
 
-jest.mock("../lib/supabase/server", () => ({
-  createClient: jest.fn().mockResolvedValue({}),
-}));
-
-jest.mock("../lib/patterns/commands/dashboard-commands", () => ({
-  CreateSupplierProductCommand: jest.fn().mockImplementation((repo: any, payload: any) => ({
-    execute: async () => ({ id: "p-1", ...payload }),
-  })),
-  UpdateSupplierProductCommand: jest.fn().mockImplementation((repo: any, id: string, payload: any) => ({
-    execute: async () => ({ id, ...payload }),
-  })),
-  DeleteSupplierProductCommand: jest.fn().mockImplementation((repo: any, id: string) => ({
-    execute: async () => ({ deleted: true }),
-  })),
-}));
 
 import { POST } from "../app/api/supplier-products/route";
 import { PATCH as PATCH_PRODUCT, DELETE as DELETE_PRODUCT } from "../app/api/supplier-products/[id]/route";
@@ -55,9 +39,41 @@ function makeApp() {
 
 describe("/api/supplier-products", () => {
   let app: express.Express;
+  let supplierId = "";
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  const productIds: string[] = [];
+  const runId = randomUUID();
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = makeApp();
+    supabase = await createClient();
+
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .insert({
+        name: `Test Supplier ${runId}`,
+        contact_person: "Test Contact",
+        email: `test+${runId}@example.com`,
+        phone: "+10000000000",
+      })
+      .select("id")
+      .single();
+
+    if (supplierError || !supplier) {
+      throw supplierError ?? new Error("Unable to create supplier for tests");
+    }
+
+    supplierId = supplier.id;
+  });
+
+  afterAll(async () => {
+    if (productIds.length > 0) {
+      await supabase.from("supplier_products").delete().in("id", productIds);
+    }
+
+    if (supplierId) {
+      await supabase.from("suppliers").delete().eq("id", supplierId);
+    }
   });
 
   afterEach(() => {
@@ -66,9 +82,9 @@ describe("/api/supplier-products", () => {
 
   it("POST create happy path returns 201", async () => {
     const payload = {
-      supplierId: "22222222-2222-4222-8222-222222222222",
+      supplierId,
       name: "Product A",
-      sku: "SKU-1",
+      sku: `SKU-${randomUUID()}`,
       category: "cat1",
       unit: "pcs",
       price: 100,
@@ -77,6 +93,7 @@ describe("/api/supplier-products", () => {
     const res = await (request(app) as any).post("/api/supplier-products").send(payload).expect(201);
     expect(res.body.ok).toBe(true);
     expect(res.body.data.name).toBe(payload.name);
+    productIds.push(res.body.data.id);
   });
 
   it("POST validation fails when missing fields", async () => {
@@ -87,7 +104,25 @@ describe("/api/supplier-products", () => {
   });
 
   it("PATCH update happy path", async () => {
-    const id = "22222222-2222-4222-8222-222222222222";
+    const { data: product, error: productError } = await supabase
+      .from("supplier_products")
+      .insert({
+        supplier_id: supplierId,
+        name: `Update Product ${randomUUID()}`,
+        sku: `SKU-${randomUUID()}`,
+        category: "cat1",
+        unit: "pcs",
+        price: 50,
+      })
+      .select("id")
+      .single();
+
+    if (productError || !product) {
+      throw productError ?? new Error("Unable to create product for update test");
+    }
+
+    const id = product.id;
+    productIds.push(id);
     const payload = { name: "Updated Product" };
     const req = new Request("http://localhost/api/supplier-products/" + id, {
       method: "PATCH",
@@ -103,7 +138,25 @@ describe("/api/supplier-products", () => {
   });
 
   it("PATCH validation fails with empty payload", async () => {
-    const id = "22222222-2222-4222-8222-222222222222";
+    const { data: product, error: productError } = await supabase
+      .from("supplier_products")
+      .insert({
+        supplier_id: supplierId,
+        name: `Empty Update ${randomUUID()}`,
+        sku: `SKU-${randomUUID()}`,
+        category: "cat1",
+        unit: "pcs",
+        price: 60,
+      })
+      .select("id")
+      .single();
+
+    if (productError || !product) {
+      throw productError ?? new Error("Unable to create product for empty update test");
+    }
+
+    const id = product.id;
+    productIds.push(id);
     const req = new Request("http://localhost/api/supplier-products/" + id, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -118,7 +171,24 @@ describe("/api/supplier-products", () => {
   });
 
   it("DELETE returns deleted true", async () => {
-    const id = "22222222-2222-4222-8222-222222222222";
+    const { data: product, error: productError } = await supabase
+      .from("supplier_products")
+      .insert({
+        supplier_id: supplierId,
+        name: `Delete Product ${randomUUID()}`,
+        sku: `SKU-${randomUUID()}`,
+        category: "cat1",
+        unit: "pcs",
+        price: 70,
+      })
+      .select("id")
+      .single();
+
+    if (productError || !product) {
+      throw productError ?? new Error("Unable to create product for delete test");
+    }
+
+    const id = product.id;
     const req = new Request("http://localhost/api/supplier-products/" + id, { method: "DELETE" });
     const nextRes = await DELETE_PRODUCT(req as any, { params: Promise.resolve({ id }) } as any);
     const json = await nextRes.json();

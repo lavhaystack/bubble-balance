@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import CheckoutPage from "./page";
 import type { CheckoutLinePayload } from "@/lib/dashboard-api";
 import type { InventoryStockRecord } from "@/lib/dashboard-types";
+import { dashboardDataCache } from "@/lib/dashboard-data-cache";
 
 type MockApiOptions = {
 	inventory: InventoryStockRecord[];
@@ -236,6 +237,7 @@ function MockApiDecorator({
 	ensureCheckoutFetchMockInstalled();
 	checkoutMockState.options = options;
 	checkoutMockState.inventory = cloneInventory(options.inventory);
+	dashboardDataCache.inventory.reset();
 
 
 

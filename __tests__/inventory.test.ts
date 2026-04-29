@@ -3,37 +3,19 @@
 import express from "express";
 import bodyParser from "body-parser";
 import request from "supertest";
+import { randomUUID } from "crypto";
+import { createClient } from "../lib/supabase/server";
 
 // Ensure environment guard passes
-process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://example.com";
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "key";
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for tests");
+}
 
-// Mock the Supabase factory used by the route so tests don't call external services
-jest.mock("../lib/patterns/repositories/dashboard-repository-factory", () => {
-  return {
-    SupabaseDashboardRepositoryFactory: jest.fn().mockImplementation(() => ({
-      createInventoryRepository: () => ({
-        // `list` is used by GET (not required for these tests but provide a stub)
-        list: async () => [],
-        // `create` will be replaced per-test as needed by assigning to this property
-        create: async (payload: any) => {
-          return {
-            id: "11111111-1111-4111-8111-111111111111",
-            supplierProductId: payload.supplierProductId,
-            quantity: payload.quantity,
-            batchId: payload.batchId,
-            expiration: payload.expiration ?? null,
-            reorderLevel: payload.reorderLevel ?? 10,
-          };
-        },
-      }),
-    })),
-  };
-});
-
-// Also mock createClient to avoid next/headers interaction
-jest.mock("../lib/supabase/server", () => ({
-  createClient: jest.fn().mockResolvedValue({}),
+jest.mock("next/headers", () => ({
+  cookies: async () => ({
+    getAll: () => [],
+    set: () => undefined,
+  }),
 }));
 
 import { POST } from "../app/api/inventory/route";
@@ -57,9 +39,65 @@ function makeApp() {
 
 describe("/api/inventory", () => {
   let app: express.Express;
+  let supplierId = "";
+  let productId = "";
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  const inventoryIds: string[] = [];
+  const runId = randomUUID();
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = makeApp();
+    supabase = await createClient();
+
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .insert({
+        name: `Test Supplier ${runId}`,
+        contact_person: "Test Contact",
+        email: `test+${runId}@example.com`,
+        phone: "+10000000000",
+      })
+      .select("id")
+      .single();
+
+    if (supplierError || !supplier) {
+      throw supplierError ?? new Error("Unable to create supplier for tests");
+    }
+
+    supplierId = supplier.id;
+
+    const { data: product, error: productError } = await supabase
+      .from("supplier_products")
+      .insert({
+        supplier_id: supplierId,
+        name: `Test Product ${runId}`,
+        sku: `SKU-${runId}`,
+        category: "test",
+        unit: "pcs",
+        price: 10,
+      })
+      .select("id")
+      .single();
+
+    if (productError || !product) {
+      throw productError ?? new Error("Unable to create supplier product for tests");
+    }
+
+    productId = product.id;
+  });
+
+  afterAll(async () => {
+    if (inventoryIds.length > 0) {
+      await supabase.from("inventory_stocks").delete().in("id", inventoryIds);
+    }
+
+    if (productId) {
+      await supabase.from("supplier_products").delete().eq("id", productId);
+    }
+
+    if (supplierId) {
+      await supabase.from("suppliers").delete().eq("id", supplierId);
+    }
   });
 
   afterEach(() => {
@@ -68,9 +106,9 @@ describe("/api/inventory", () => {
 
   it("happy path: creates inventory and returns 201 with item", async () => {
     const payload = {
-      supplierProductId: "22222222-2222-4222-8222-222222222222",
+      supplierProductId: productId,
       quantity: 5,
-      batchId: "BATCH-1",
+      batchId: `BATCH-${randomUUID()}`,
       expiration: null,
       reorderLevel: 3,
     };
@@ -82,6 +120,7 @@ describe("/api/inventory", () => {
     expect(res.body.data).toHaveProperty("id");
     expect(res.body.data.supplierProductId).toBe(payload.supplierProductId);
     expect(res.body.data.quantity).toBe(payload.quantity);
+    inventoryIds.push(res.body.data.id);
   });
 
   it("sad path: validation fails when required fields missing", async () => {
