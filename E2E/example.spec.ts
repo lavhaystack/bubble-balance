@@ -227,12 +227,17 @@ test.describe("Inventory E2E", () => {
       page.getByRole("heading", { name: "Inventory Management" }),
     ).toBeVisible();
 
+    // Wait for inventory data to load
+    await expect(page.getByText("2 of 2 products")).toBeVisible();
+
     await page
       .getByPlaceholder("Search by name, SKU, or supplier...")
       .fill("Lemon");
 
+    // Wait for the filter to apply and show only 1 product
+    await expect(page.getByText("1 of 2 products")).toBeVisible();
     await expect(page.getByText("Lemon Zest Soap")).toBeVisible();
-    await expect(page.getByText("Lavender Bar")).toHaveCount(0);
+    await expect(page.getByText("Lavender Bar")).not.toBeVisible();
 
     const statusFilter = page.getByRole("combobox").nth(1);
     await statusFilter.click();
