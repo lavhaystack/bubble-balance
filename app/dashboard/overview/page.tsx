@@ -4,16 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, MoreVertical, Plus, ArrowRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { fetchInventoryStocks, fetchDashboardStats } from "@/lib/dashboard-api";
 import type { InventoryStockRecord, DashboardStats } from "@/lib/dashboard-types";
 import { toast } from "sonner";
 import { formatPhpCurrency } from "@/lib/currency";
+import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const statusStyles: Record<string, string> = {
+  "In Stock": "border-transparent bg-green-100 text-green-700 hover:bg-green-200",
+  "Low Stock": "border-transparent bg-blue-100 text-blue-700 hover:bg-blue-200",
+  "Out of Stock": "border-transparent bg-red-100 text-red-700 hover:bg-red-200",
+};
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -52,16 +60,19 @@ export default function OverviewPage() {
         const skuGroups = Object.values(stocksBySku);
 
         const outOfStock = skuGroups
-          .filter(group => group.totalQuantity === 0)
-          .map(group => group.representativeItem);
+          .filter(group => getStockStatusByQuantity(group.totalQuantity) === "Out of Stock")
+          .map(group => ({
+            ...group.representativeItem,
+            quantity: 0
+          }));
         setOutOfStockItems(outOfStock);
 
         const lowStock = skuGroups
-          .filter(group => 
-            group.totalQuantity > 0 && 
-            group.totalQuantity <= group.representativeItem.reorderLevel
-          )
-          .map(group => group.representativeItem);
+          .filter(group => getStockStatusByQuantity(group.totalQuantity) === "Low Stock")
+          .map(group => ({
+            ...group.representativeItem,
+            quantity: group.totalQuantity
+          }));
         setLowStockItems(lowStock);
 
         setDashboardStats(stats);
@@ -177,9 +188,9 @@ export default function OverviewPage() {
                     </td>
                     <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
                     <td className="py-4">
-                      <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-orange-700">
+                      <Badge className={statusStyles["Out of Stock"]}>
                         Out of Stock
-                      </span>
+                      </Badge>
                     </td>
                     <td className="py-4 text-right text-gray-900">
                       {mounted ? formatPhpCurrency(item.price) : `₱${item.price.toFixed(2)}`}
@@ -265,15 +276,9 @@ export default function OverviewPage() {
                       {mounted ? formatPhpCurrency(product.totalValue) : `₱${product.totalValue.toFixed(2)}`}
                     </td>
                     <td className="py-4">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                        product.status === "In Stock" 
-                          ? "bg-green-50 text-green-700" 
-                          : product.status === "Out of Stock"
-                          ? "bg-red-50 text-red-700"
-                          : "bg-orange-50 text-orange-700"
-                      }`}>
+                      <Badge className={statusStyles[product.status]}>
                         {product.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="py-4 text-right">
                       <button className="text-gray-400 hover:text-gray-600">
@@ -337,9 +342,9 @@ export default function OverviewPage() {
                     <td className="py-4 text-gray-900">{item.category}</td>
                     <td className="py-4 text-gray-900">{item.supplierName}</td>
                     <td className="py-4">
-                      <span className="inline-flex rounded-full bg-orange-50 px-2 py-1 text-xs font-medium text-orange-700">
+                      <Badge className={statusStyles["Low Stock"]}>
                         Low Stock
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))
