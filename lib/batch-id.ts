@@ -5,7 +5,6 @@ function escapeRegExp(value: string) {
 export function buildSuggestedBatchId(
   sku: string,
   existingBatchIds: string[],
-  year = new Date().getFullYear(),
 ) {
   const normalizedSku = sku.trim().toUpperCase();
   if (!normalizedSku) {
@@ -13,7 +12,7 @@ export function buildSuggestedBatchId(
   }
 
   const matcher = new RegExp(
-    `^${escapeRegExp(normalizedSku)}-${year}-(\\d{2})$`,
+    `^${escapeRegExp(normalizedSku)}-(\\d{2})$`,
     "i",
   );
 
@@ -27,5 +26,5 @@ export function buildSuggestedBatchId(
     return Number.isNaN(sequence) ? max : Math.max(max, sequence);
   }, 0);
 
-  return `${normalizedSku}-${year}-${String(maxSequence + 1).padStart(2, "0")}`;
+  return `${normalizedSku}-${String(maxSequence + 1).padStart(2, "0")}`;
 }

@@ -344,7 +344,7 @@ export default function AddProductModal({
                   name="batchId"
                   value={form.batchId}
                   onChange={handleChange}
-                  placeholder="e.g., BATCH-2026-01"
+                  placeholder="e.g., BATCH-01"
                   className={errors.batchId ? "border-red-600" : ""}
                 />
                 {errors.batchId && (
