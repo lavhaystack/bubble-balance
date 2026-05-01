@@ -311,7 +311,6 @@ export default function OverviewPage() {
                 <th className="pb-4 font-medium">Product name</th>
                 <th className="pb-4 font-medium">SKU</th>
                 <th className="pb-4 font-medium">Current Stock</th>
-                <th className="pb-4 font-medium">Reorder Level</th>
                 <th className="pb-4 font-medium">Category</th>
                 <th className="pb-4 font-medium">Supplier</th>
                 <th className="pb-4 font-medium">Status</th>
@@ -320,13 +319,13 @@ export default function OverviewPage() {
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400">
+                  <td colSpan={6} className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : lowStockItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400">
+                  <td colSpan={6} className="py-8 text-center text-gray-400">
                     No low stock alerts
                   </td>
                 </tr>
@@ -338,7 +337,6 @@ export default function OverviewPage() {
                     </td>
                     <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
                     <td className="py-4 text-gray-900">{item.quantity} {item.unit}</td>
-                    <td className="py-4 text-gray-900">{item.reorderLevel}</td>
                     <td className="py-4 text-gray-900">{item.category}</td>
                     <td className="py-4 text-gray-900">{item.supplierName}</td>
                     <td className="py-4">

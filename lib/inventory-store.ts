@@ -7,7 +7,6 @@ export type InventoryRecord = {
   price: number;
   expiration: string;
   supplier: string;
-  reorderLevel: number;
 };
 
 export const INVENTORY_STORAGE_KEY = "bubble-balance.inventory";
@@ -23,7 +22,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 8.99,
     expiration: "2026-08-15",
     supplier: "Natural Supplies Co.",
-    reorderLevel: 15,
   },
   {
     name: "Tea Tree Antibacterial Soap",
@@ -34,7 +32,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 9.99,
     expiration: "2025-04-20",
     supplier: "Pure Botanicals",
-    reorderLevel: 14,
   },
   {
     name: "Chamomile and Honey Moisturizing Soap",
@@ -45,7 +42,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 7.49,
     expiration: "2026-12-10",
     supplier: "Organic Essence Ltd.",
-    reorderLevel: 20,
   },
   {
     name: "Activated Charcoal Detox Soap",
@@ -56,7 +52,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 10.99,
     expiration: "2025-05-30",
     supplier: "Natural Supplies Co.",
-    reorderLevel: 12,
   },
   {
     name: "Eucalyptus Mint Soap",
@@ -67,7 +62,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 8.99,
     expiration: "2026-07-18",
     supplier: "Natural Supplies Co.",
-    reorderLevel: 12,
   },
   {
     name: "Sweet Orange Soap",
@@ -78,7 +72,6 @@ export const DEFAULT_INVENTORY_PRODUCTS: InventoryRecord[] = [
     price: 7.99,
     expiration: "2025-12-10",
     supplier: "Pure Botanicals",
-    reorderLevel: 10,
   },
 ];
 

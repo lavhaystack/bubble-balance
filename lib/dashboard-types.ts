@@ -36,7 +36,6 @@ export type InventoryStockRecord = {
   batchId: string;
   expiration: string;
   archivedAt: string | null;
-  reorderLevel: number;
   createdAt: string;
   updatedAt: string;
 };

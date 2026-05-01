@@ -181,7 +181,6 @@ export default function InventoryContent() {
     quantity: number;
     batchId: string;
     expiration?: string;
-    reorderLevel: number;
   }) => {
     try {
       await createInventoryStockCommand(payload).execute();

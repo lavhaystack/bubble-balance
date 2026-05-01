@@ -19,7 +19,6 @@ export type Product = {
   archivedAt: string | null;
   supplier: string;
   batchId: string;
-  reorderLevel: number;
 };
 
 export const getStockStatus = getStockStatusForProduct;
