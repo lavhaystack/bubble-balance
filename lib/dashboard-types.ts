@@ -46,3 +46,19 @@ export type CheckoutConfirmResult = {
   totalItems: number;
   totalAmount: number;
 };
+
+export type TopProductRecord = {
+  name: string;
+  sku: string;
+  sold: number;
+  stock: number;
+  price: number;
+  totalValue: number;
+  status: string;
+};
+
+export type DashboardStats = {
+  totalSales: number;
+  unitsSold: number;
+  topProducts: TopProductRecord[];
+};

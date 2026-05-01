@@ -3,19 +3,23 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, MoreVertical, Plus, ArrowRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchInventoryStocks } from "@/lib/dashboard-api";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
+import { fetchInventoryStocks, fetchDashboardStats } from "@/lib/dashboard-api";
+import type { InventoryStockRecord, DashboardStats } from "@/lib/dashboard-types";
 import { toast } from "sonner";
 
 export default function OverviewPage() {
   const [outOfStockItems, setOutOfStockItems] = useState<InventoryStockRecord[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryStockRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const stocks = await fetchInventoryStocks();
+        const [stocks, stats] = await Promise.all([
+          fetchInventoryStocks(),
+          fetchDashboardStats(),
+        ]);
         
         const outOfStock = stocks.filter(item => item.quantity === 0 && !item.archivedAt);
         setOutOfStockItems(outOfStock);
@@ -26,8 +30,9 @@ export default function OverviewPage() {
           !item.archivedAt
         );
         setLowStockItems(lowStock);
+        setDashboardStats(stats);
       } catch (error) {
-        toast.error("Failed to load inventory data");
+        toast.error("Failed to load dashboard data");
         console.error(error);
       } finally {
         setLoading(false);
@@ -39,15 +44,15 @@ export default function OverviewPage() {
   const stats = [
     {
       label: "Total sales",
-      value: "$325,000.00",
-      trend: "45% VS last week",
-      trendType: "down",
+      value: `₱${(dashboardStats?.totalSales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      trend: null,
+      trendType: null,
     },
     {
       label: "Units sold",
-      value: "6,098",
-      trend: "69% VS last week",
-      trendType: "down",
+      value: (dashboardStats?.unitsSold ?? 0).toLocaleString(),
+      trend: null,
+      trendType: null,
     },
     {
       label: "Out of stock",
@@ -57,35 +62,6 @@ export default function OverviewPage() {
     },
   ];
 
-  const topProducts = [
-    {
-      name: "Lavender Essential Oil Soap",
-      sku: "993",
-      sold: "1234",
-      stock: 89,
-      price: "$45.00",
-      value: "$55,530.00",
-      status: "In Stock",
-    },
-    {
-      name: "Tea Tree Antibacterial Soap",
-      sku: "887",
-      sold: "998",
-      stock: 45,
-      price: "$32.00",
-      value: "$31,936.00",
-      status: "Low Stock",
-    },
-    {
-      name: "Chamomile & Honey Soap",
-      sku: "756",
-      sold: "876",
-      stock: 120,
-      price: "$28.00",
-      value: "$24,528.00",
-      status: "In Stock",
-    },
-  ];
 
   return (
     <div className="space-y-8">
@@ -166,7 +142,7 @@ export default function OverviewPage() {
                       </span>
                     </td>
                     <td className="py-4 text-right text-gray-900">
-                      ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₱{item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))
@@ -199,37 +175,57 @@ export default function OverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {topProducts.map((product) => (
-                <tr key={product.sku} className="group hover:bg-gray-50 transition-colors">
-                  <td className="py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-[#fdf8e6] flex items-center justify-center">
-                        <Plus className="h-5 w-5 text-[#e6b12d]" />
-                      </div>
-                      <span className="font-medium text-gray-900">{product.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 font-mono text-xs text-gray-400">{product.sku}</td>
-                  <td className="py-4 text-gray-900">{product.sold}</td>
-                  <td className="py-4 text-gray-900">{product.stock}</td>
-                  <td className="py-4 text-gray-900">{product.price}</td>
-                  <td className="py-4 text-gray-900">{product.value}</td>
-                  <td className="py-4">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      product.status === "In Stock" 
-                        ? "bg-green-50 text-green-700" 
-                        : "bg-orange-50 text-orange-700"
-                    }`}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-gray-400">
+                    Loading...
                   </td>
                 </tr>
-              ))}
+              ) : !dashboardStats?.topProducts || dashboardStats.topProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-gray-400">
+                    No sales data available
+                  </td>
+                </tr>
+              ) : (
+                dashboardStats.topProducts.map((product) => (
+                  <tr key={product.sku} className="group hover:bg-gray-50 transition-colors">
+                    <td className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-[#fdf8e6] flex items-center justify-center">
+                          <Plus className="h-5 w-5 text-[#e6b12d]" />
+                        </div>
+                        <span className="font-medium text-gray-900">{product.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 font-mono text-xs text-gray-400">{product.sku}</td>
+                    <td className="py-4 text-gray-900">{product.sold.toLocaleString()}</td>
+                    <td className="py-4 text-gray-900">{product.stock.toLocaleString()}</td>
+                    <td className="py-4 text-gray-900">
+                      ₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 text-gray-900">
+                      ₱{product.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        product.status === "In Stock" 
+                          ? "bg-green-50 text-green-700" 
+                          : product.status === "Out of Stock"
+                          ? "bg-red-50 text-red-700"
+                          : "bg-orange-50 text-orange-700"
+                      }`}>
+                        {product.status}
+                      </span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <button className="text-gray-400 hover:text-gray-600">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

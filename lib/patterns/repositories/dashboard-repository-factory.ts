@@ -15,9 +15,11 @@ import {
 } from "@/lib/dashboard-mappers";
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
+  TopProductRecord,
 } from "@/lib/dashboard-types";
 import { AppError } from "@/lib/patterns/errors/app-error";
 
@@ -88,11 +90,16 @@ export interface CheckoutRepository {
   confirm(payload: CheckoutConfirmInput): Promise<CheckoutConfirmResult>;
 }
 
+export interface StatsRepository {
+  getDashboardStats(): Promise<DashboardStats>;
+}
+
 export interface DashboardRepositoryFactory {
   createSupplierRepository(): SupplierRepository;
   createSupplierProductRepository(): SupplierProductRepository;
   createInventoryRepository(): InventoryRepository;
   createCheckoutRepository(): CheckoutRepository;
+  createStatsRepository(): StatsRepository;
 }
 
 class SupabaseSupplierRepository implements SupplierRepository {
@@ -576,6 +583,111 @@ class SupabaseCheckoutRepository implements CheckoutRepository {
   }
 }
 
+class SupabaseStatsRepository implements StatsRepository {
+  constructor(private readonly supabase: SupabaseClientLike) {}
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    // 1. Fetch total sales and units sold
+    const { data: orderStats, error: orderError } = await this.supabase
+      .from("checkout_orders")
+      .select("total_amount, total_items");
+
+    if (orderError) {
+      failFromSupabase(orderError, "Unable to fetch order stats");
+    }
+
+    const totalSales = (orderStats ?? []).reduce(
+      (sum, order) => sum + Number(order.total_amount),
+      0,
+    );
+    const unitsSold = (orderStats ?? []).reduce(
+      (sum, order) => sum + Number(order.total_items),
+      0,
+    );
+
+    // 2. Fetch top products (sold quantity per product)
+    const { data: itemStats, error: itemError } = await this.supabase
+      .from("checkout_order_items")
+      .select("supplier_product_id, quantity, price, product_name, sku");
+
+    if (itemError) {
+      failFromSupabase(itemError, "Unable to fetch item stats");
+    }
+
+    // Group by supplier_product_id
+    const productSoldMap: Record<
+      string,
+      { sold: number; totalValue: number; name: string; sku: string; price: number }
+    > = {};
+    (itemStats ?? []).forEach((item) => {
+      const pid = item.supplier_product_id;
+      if (!productSoldMap[pid]) {
+        productSoldMap[pid] = {
+          sold: 0,
+          totalValue: 0,
+          name: item.product_name,
+          sku: item.sku,
+          price: Number(item.price),
+        };
+      }
+      productSoldMap[pid].sold += item.quantity;
+      productSoldMap[pid].totalValue += item.quantity * Number(item.price);
+    });
+
+    // 3. Fetch current stock for these products
+    const { data: inventoryData, error: inventoryError } = await this.supabase
+      .from("inventory_stocks")
+      .select("supplier_product_id, quantity, reorder_level")
+      .is("archived_at", null);
+
+    if (inventoryError) {
+      failFromSupabase(inventoryError, "Unable to fetch inventory stats");
+    }
+
+    const stockMap: Record<string, { totalStock: number; minReorderLevel: number }> = {};
+    (inventoryData ?? []).forEach((inv) => {
+      const pid = inv.supplier_product_id;
+      if (!stockMap[pid]) {
+        stockMap[pid] = { totalStock: 0, minReorderLevel: inv.reorder_level };
+      }
+      stockMap[pid].totalStock += inv.quantity;
+      stockMap[pid].minReorderLevel = Math.min(
+        stockMap[pid].minReorderLevel,
+        inv.reorder_level,
+      );
+    });
+
+    const topProducts: TopProductRecord[] = Object.entries(productSoldMap)
+      .map(([pid, data]) => {
+        const stockInfo = stockMap[pid] || { totalStock: 0, minReorderLevel: 0 };
+        let status = "In Stock";
+        if (stockInfo.totalStock === 0) {
+          status = "Out of Stock";
+        } else if (stockInfo.totalStock <= stockInfo.minReorderLevel) {
+          status = "Low Stock";
+        }
+
+        return {
+          name: data.name,
+          sku: data.sku,
+          sold: data.sold,
+          stock: stockInfo.totalStock,
+          price: data.price,
+          totalValue: data.totalValue,
+          status,
+        };
+      })
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5); // Top 5
+
+    return {
+      totalSales,
+      unitsSold,
+      topProducts,
+    };
+  }
+}
+
 export class SupabaseDashboardRepositoryFactory implements DashboardRepositoryFactory {
   constructor(private readonly supabase: SupabaseClientLike) {}
 
@@ -593,5 +705,9 @@ export class SupabaseDashboardRepositoryFactory implements DashboardRepositoryFa
 
   createCheckoutRepository(): CheckoutRepository {
     return new SupabaseCheckoutRepository(this.supabase);
+  }
+
+  createStatsRepository(): StatsRepository {
+    return new SupabaseStatsRepository(this.supabase);
   }
 }

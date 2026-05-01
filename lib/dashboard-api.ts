@@ -1,5 +1,6 @@
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
@@ -175,4 +176,8 @@ export async function confirmCheckout(items: CheckoutLinePayload[]) {
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+export async function fetchDashboardStats() {
+  return request<DashboardStats>("/api/dashboard/stats");
 }
