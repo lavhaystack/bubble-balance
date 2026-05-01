@@ -367,7 +367,7 @@ export default function CheckoutContent() {
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
           Checkout
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {loading
             ? "Loading checkout products..."
             : "Select products to checkout from inventory"}

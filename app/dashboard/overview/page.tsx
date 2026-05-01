@@ -35,15 +35,35 @@ export default function OverviewPage() {
           fetchDashboardStats(),
         ]);
         
-        const outOfStock = stocks.filter(item => item.quantity === 0 && !item.archivedAt);
+        const activeStocks = stocks.filter(item => !item.archivedAt);
+        
+        // Group by SKU to determine true stock levels
+        const stocksBySku = activeStocks.reduce((acc, item) => {
+          if (!acc[item.sku]) {
+            acc[item.sku] = {
+              totalQuantity: 0,
+              representativeItem: item,
+            };
+          }
+          acc[item.sku].totalQuantity += item.quantity;
+          return acc;
+        }, {} as Record<string, { totalQuantity: number, representativeItem: InventoryStockRecord }>);
+
+        const skuGroups = Object.values(stocksBySku);
+
+        const outOfStock = skuGroups
+          .filter(group => group.totalQuantity === 0)
+          .map(group => group.representativeItem);
         setOutOfStockItems(outOfStock);
 
-        const lowStock = stocks.filter(item => 
-          item.quantity > 0 && 
-          item.quantity <= item.reorderLevel && 
-          !item.archivedAt
-        );
+        const lowStock = skuGroups
+          .filter(group => 
+            group.totalQuantity > 0 && 
+            group.totalQuantity <= group.representativeItem.reorderLevel
+          )
+          .map(group => group.representativeItem);
         setLowStockItems(lowStock);
+
         setDashboardStats(stats);
       } catch (error) {
         toast.error("Failed to load dashboard data");
@@ -83,8 +103,8 @@ export default function OverviewPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Overview</h1>
-          <p className="text-sm text-gray-500">Track and manage inventory, sales and transactions</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Overview</h1>
+          <p className="text-sm text-muted-foreground">Track and manage inventory, sales and transactions</p>
         </div>
         <div className="flex gap-3">
           <Button 
