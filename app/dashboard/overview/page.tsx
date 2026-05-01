@@ -160,23 +160,25 @@ export default function OverviewPage() {
           <table className="w-full text-left text-sm text-gray-500">
             <thead>
               <tr className="border-b border-gray-50 pb-4 text-xs uppercase tracking-wider text-gray-700">
-                <th className="pb-4 font-medium">Product name</th>
-                <th className="pb-4 font-medium">SKU</th>
-                <th className="pb-4 font-medium">Status</th>
-                <th className="pb-4 text-right font-medium">Price</th>
-                <th className="pb-4"></th>
+                <th className="pb-4 font-medium min-w-[200px]">Product name</th>
+                <th className="pb-4 font-medium min-w-[100px]">SKU</th>
+                <th className="pb-4 font-medium min-w-[120px]">Category</th>
+                <th className="pb-4 font-medium min-w-[150px]">Supplier</th>
+                <th className="pb-4 font-medium min-w-[100px]">Status</th>
+                <th className="pb-4 text-right font-medium min-w-[80px]">Price</th>
+                <th className="pb-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                  <td colSpan={7} className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : outOfStockItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                  <td colSpan={7} className="py-8 text-center text-gray-400">
                     No products out of stock
                   </td>
                 </tr>
@@ -186,7 +188,9 @@ export default function OverviewPage() {
                     <td className="py-4">
                       <span className="font-medium text-red-600">{item.name}</span>
                     </td>
-                    <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
+                     <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
+                    <td className="py-4 text-gray-900">{item.category}</td>
+                    <td className="py-4 text-gray-900">{item.supplierName}</td>
                     <td className="py-4">
                       <Badge className={statusStyles["Out of Stock"]}>
                         Out of Stock
@@ -232,14 +236,14 @@ export default function OverviewPage() {
           <table className="w-full text-left text-sm text-gray-500">
             <thead>
               <tr className="border-b border-gray-50 pb-4 text-xs uppercase tracking-wider text-gray-700">
-                <th className="pb-4 font-medium">Product name</th>
-                <th className="pb-4 font-medium">SKU</th>
-                <th className="pb-4 font-medium">Item sold</th>
-                <th className="pb-4 font-medium">In Stock</th>
-                <th className="pb-4 font-medium">Unit price</th>
-                <th className="pb-4 font-medium">Total value</th>
-                <th className="pb-4 font-medium">Status</th>
-                <th className="pb-4"></th>
+                <th className="pb-4 font-medium min-w-[200px]">Product name</th>
+                <th className="pb-4 font-medium min-w-[100px]">SKU</th>
+                <th className="pb-4 font-medium min-w-[100px]">Item sold</th>
+                <th className="pb-4 font-medium min-w-[100px]">In Stock</th>
+                <th className="pb-4 font-medium min-w-[120px]">Unit price</th>
+                <th className="pb-4 font-medium min-w-[120px]">Total value</th>
+                <th className="pb-4 font-medium min-w-[100px]">Status</th>
+                <th className="pb-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -308,12 +312,12 @@ export default function OverviewPage() {
           <table className="w-full text-left text-sm text-gray-500">
             <thead>
               <tr className="border-b border-gray-50 pb-4 text-xs uppercase tracking-wider text-gray-700">
-                <th className="pb-4 font-medium">Product name</th>
-                <th className="pb-4 font-medium">SKU</th>
-                <th className="pb-4 font-medium">Current Stock</th>
-                <th className="pb-4 font-medium">Category</th>
-                <th className="pb-4 font-medium">Supplier</th>
-                <th className="pb-4 font-medium">Status</th>
+                <th className="pb-4 font-medium min-w-[200px]">Product name</th>
+                <th className="pb-4 font-medium min-w-[100px]">SKU</th>
+                <th className="pb-4 font-medium min-w-[120px]">Current Stock</th>
+                <th className="pb-4 font-medium min-w-[120px]">Category</th>
+                <th className="pb-4 font-medium min-w-[150px]">Supplier</th>
+                <th className="pb-4 font-medium min-w-[100px]">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
