@@ -45,9 +45,11 @@ export default function OverviewPage() {
   const [outOfStockItems, setOutOfStockItems] = useState<InventoryStockRecord[]>(
     [],
   );
+  const [totalOutOfStock, setTotalOutOfStock] = useState(0);
   const [lowStockItems, setLowStockItems] = useState<InventoryStockRecord[]>(
     [],
   );
+  const [totalLowStock, setTotalLowStock] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(
     null,
@@ -88,7 +90,7 @@ export default function OverviewPage() {
 
         const skuGroups = Object.values(stocksBySku);
 
-        const outOfStock = skuGroups
+        const allOutOfStock = skuGroups
           .filter(
             (group) =>
               getStockStatusByQuantity(group.totalQuantity) === "Out of Stock",
@@ -96,10 +98,13 @@ export default function OverviewPage() {
           .map((group) => ({
             ...group.representativeItem,
             quantity: 0,
-          }));
-        setOutOfStockItems(outOfStock);
+          }))
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-        const lowStock = skuGroups
+        setTotalOutOfStock(allOutOfStock.length);
+        setOutOfStockItems(allOutOfStock.slice(0, 5));
+
+        const allLowStock = skuGroups
           .filter(
             (group) =>
               getStockStatusByQuantity(group.totalQuantity) === "Low Stock",
@@ -107,8 +112,11 @@ export default function OverviewPage() {
           .map((group) => ({
             ...group.representativeItem,
             quantity: group.totalQuantity,
-          }));
-        setLowStockItems(lowStock);
+          }))
+          .sort((a, b) => a.quantity - b.quantity);
+
+        setTotalLowStock(allLowStock.length);
+        setLowStockItems(allLowStock.slice(0, 5));
 
         setDashboardStats(stats);
       } catch (error) {
@@ -190,11 +198,19 @@ export default function OverviewPage() {
       {/* Out of stock */}
       <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Out of stock</h2>
+          <div>
+            <h2 className="font-semibold text-gray-900">Out of stock</h2>
+            {totalOutOfStock > 5 && (
+              <p className="text-sm text-gray-500">
+                (showing 5 out of {totalOutOfStock} out of stock products)
+              </p>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
             className="text-gray-600 hover:text-gray-900"
+            onClick={() => router.push("/dashboard/inventory?status=Out of Stock")}
           >
             View all <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
@@ -306,13 +322,6 @@ export default function OverviewPage() {
       <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">Top selling products</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            View all <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
         </div>
         <Table>
           <TableHeader>
@@ -448,14 +457,22 @@ export default function OverviewPage() {
       {/* Low Stock Alert */}
       <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-semibold text-gray-900">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            Low Stock Alert
-          </h2>
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-gray-900">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Low Stock Alert
+            </h2>
+            {totalLowStock > 5 && (
+              <p className="text-sm text-gray-500">
+                (showing 5 out of {totalLowStock} low stock products)
+              </p>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
             className="text-gray-600 hover:text-gray-900"
+            onClick={() => router.push("/dashboard/inventory?status=Low Stock")}
           >
             View all <ArrowRight className="ml-1 h-4 w-4" />
           </Button>

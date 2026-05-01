@@ -135,6 +135,7 @@ export default function InventoryContent() {
     const supplierId = searchParams.get("supplierId") ?? "";
     const supplierProductId = searchParams.get("supplierProductId") ?? "";
     const shouldAdd = searchParams.get("add") === "true";
+    const statusParam = searchParams.get("status");
 
     if (supplierId && supplierProductId) {
       setInitialSupplierId(supplierId);
@@ -142,6 +143,10 @@ export default function InventoryContent() {
       setShowModal(true);
     } else if (shouldAdd) {
       setShowModal(true);
+    }
+
+    if (statusParam) {
+      setStatusFilters([statusParam]);
     }
   }, [searchParams]);
 
@@ -152,7 +157,8 @@ export default function InventoryContent() {
     if (
       searchParams.get("supplierId") ||
       searchParams.get("supplierProductId") ||
-      searchParams.get("add")
+      searchParams.get("add") ||
+      searchParams.get("status")
     ) {
       router.replace(INVENTORY_ROUTE);
     }
