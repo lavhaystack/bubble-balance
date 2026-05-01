@@ -62,6 +62,15 @@ class CheckoutCategoryStrategy implements FilterStrategy<
   }
 }
 
+class CheckoutInStockStrategy implements FilterStrategy<
+  InventoryStockRecord,
+  CheckoutFilterCriteria
+> {
+  apply(items: InventoryStockRecord[]) {
+    return items.filter((product) => product.quantity > 0);
+  }
+}
+
 class InventorySearchStrategy implements FilterStrategy<
   InventoryFilterableProduct,
   InventoryFilterCriteria
@@ -151,7 +160,11 @@ class InventoryExpirationStrategy implements FilterStrategy<
 
 const checkoutStrategies: ReadonlyArray<
   FilterStrategy<InventoryStockRecord, CheckoutFilterCriteria>
-> = [new CheckoutSearchStrategy(), new CheckoutCategoryStrategy()];
+> = [
+  new CheckoutSearchStrategy(),
+  new CheckoutCategoryStrategy(),
+  new CheckoutInStockStrategy(),
+];
 
 const inventoryStrategyFactories: ReadonlyArray<
   (
