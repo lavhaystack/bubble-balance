@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpDown, Archive, Package2, Plus, Search } from "lucide-react";
+import { ArrowUpDown, Archive, Package2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import InventoryTable from "./components/InventoryTable";
@@ -10,6 +10,7 @@ import AddProductModal from "./components/AddProductModal";
 import { type Product } from "./components/types";
 
 import { Button } from "@/components/ui/button";
+import { AddProductButton } from "@/components/dashboard/add-product-button";
 import { Input } from "@/components/ui/input";
 import { fetchInventoryStocks, fetchSuppliers } from "@/lib/dashboard-api";
 import {
@@ -83,7 +84,6 @@ export default function InventoryContent() {
     archivedAt: record.archivedAt,
     supplier: record.supplierName,
     batchId: record.batchId,
-    reorderLevel: record.reorderLevel,
   });
 
   const loadData = useCallback(async (force = false) => {
@@ -450,15 +450,12 @@ export default function InventoryContent() {
           Expiration {expirationSort === "asc" ? "Ascending" : "Descending"}
         </Button>
 
-        <Button
+        <AddProductButton
           onClick={() => {
             setShowModal(true);
           }}
-          className="bg-emerald-700 text-white hover:bg-emerald-800"
-        >
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Button>
+        />
+
       </div>
 
       <InventoryTable

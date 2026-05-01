@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AddProductButton } from "@/components/dashboard/add-product-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -172,12 +173,8 @@ export default function OverviewPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             Overview
           </h1>
-          <Button
-            onClick={() => router.push("/dashboard/inventory?add=true")}
-            className="bg-emerald-700 text-white hover:bg-emerald-800"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Add Product
-          </Button>
+          <AddProductButton />
+
         </div>
       </div>
 

@@ -21,4 +21,5 @@ export type Product = {
   batchId: string;
 };
 
+
 export const getStockStatus = getStockStatusForProduct;

@@ -73,7 +73,6 @@ export type CreateInventoryStockPayload = {
   quantity: number;
   batchId: string;
   expiration?: string;
-  reorderLevel: number;
 };
 
 export async function fetchSuppliers() {
