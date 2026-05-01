@@ -12,7 +12,7 @@ import {
   mapInventoryRow,
   mapSupplierProductRow,
   mapSupplierRows,
-} from "@/lib/dashboard-mappers";
+} from "@/lib/core/mappers";
 import type {
   CheckoutConfirmResult,
   DashboardStats,
@@ -20,8 +20,8 @@ import type {
   SupplierProductRecord,
   SupplierRecord,
   TopProductRecord,
-} from "@/lib/dashboard-types";
-import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
+} from "@/lib/types/dashboard";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
 import { AppError } from "@/lib/patterns/errors/app-error";
 
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
@@ -33,7 +33,7 @@ type SupabaseErrorLike = {
 };
 
 const INVENTORY_SELECT =
-  "id,quantity,initial_quantity,batch_id,expiration,archived_at,reorder_level,supplier_product_id,created_at,updated_at," +
+  "id,quantity,initial_quantity,batch_id,expiration,archived_at,supplier_product_id,created_at,updated_at," +
   "supplier_products!inner(id,supplier_id,name,sku,category,unit,price,suppliers!inner(id,name))";
 
 function failFromSupabase(
@@ -484,7 +484,6 @@ class SupabaseInventoryRepository implements InventoryRepository {
         initial_quantity: payload.quantity,
         batch_id: payload.batchId,
         expiration: payload.expiration ?? null,
-        reorder_level: payload.reorderLevel,
       })
       .select("id")
       .single()) as {
@@ -638,7 +637,7 @@ class SupabaseStatsRepository implements StatsRepository {
     // 3. Fetch current stock for these products
     const { data: inventoryData, error: inventoryError } = await this.supabase
       .from("inventory_stocks")
-      .select("id, supplier_product_id, quantity, reorder_level, supplier_products!inner(supplier_id)")
+      .select("id, supplier_product_id, quantity, supplier_products!inner(supplier_id)")
       .is("archived_at", null);
 
     if (inventoryError) {

@@ -1,7 +1,7 @@
 import {
   getStockStatusForProduct,
   type StockStatus,
-} from "@/lib/dashboard-stock";
+} from "@/lib/utils/stock";
 
 export type { StockStatus };
 

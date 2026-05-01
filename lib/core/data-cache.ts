@@ -1,7 +1,7 @@
 import type {
   InventoryStockRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 
 const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 5;
 

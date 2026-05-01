@@ -13,7 +13,7 @@ import type {
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 import type { Command } from "@/lib/patterns/commands/command";
 import type {
   CheckoutRepository,

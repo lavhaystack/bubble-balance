@@ -25,9 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatPhpCurrency } from "@/lib/currency";
-import { buildSuggestedBatchId } from "@/lib/batch-id";
-import type { SupplierRecord } from "@/lib/dashboard-types";
+import { formatPhpCurrency } from "@/lib/utils/currency";
+import { buildSuggestedBatchId } from "@/lib/utils/batch-id";
+import type { SupplierRecord } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
 
 type AddProductModalProps = {

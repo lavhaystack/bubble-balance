@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { formatPhpCurrency } from "@/lib/currency";
+import { formatPhpCurrency } from "@/lib/utils/currency";
 
 import { getStockStatus, type Product } from "./types";
 

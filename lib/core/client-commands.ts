@@ -3,7 +3,7 @@ import type {
   CreateInventoryStockPayload,
   CreateSupplierPayload,
   CreateSupplierProductPayload,
-} from "@/lib/dashboard-api";
+} from "@/lib/api/dashboard";
 import {
   confirmCheckout,
   createInventoryStock,
@@ -15,7 +15,7 @@ import {
   setInventoryStockArchived,
   updateSupplier,
   updateSupplierProduct,
-} from "@/lib/dashboard-api";
+} from "@/lib/api/dashboard";
 import type { Command } from "@/lib/patterns/commands/command";
 
 class AsyncActionCommand<TResult> implements Command<TResult> {

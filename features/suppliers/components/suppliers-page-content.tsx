@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import AddProductModal from "./components/supplier-product-modal";
-import SupplierTable from "./components/supplier-table";
+import AddProductModal from "./supplier-product-modal";
+import SupplierTable from "./supplier-table";
 import PaginationControls from "@/components/shared/pagination-controls";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fetchSuppliers } from "@/lib/dashboard-api";
+import { fetchSuppliers } from "@/lib/api/dashboard";
 import {
   createSupplierCommand,
   createSupplierProductCommand,
@@ -27,11 +27,11 @@ import {
   deleteSupplierProductCommand,
   updateSupplierCommand,
   updateSupplierProductCommand,
-} from "@/lib/dashboard-client-commands";
-import { normalizePriceInput } from "@/lib/currency";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
-import type { SupplierRecord } from "@/lib/dashboard-types";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+} from "@/lib/core/client-commands";
+import { normalizePriceInput } from "@/lib/utils/currency";
+import { dashboardDataCache } from "@/lib/core/data-cache";
+import type { SupplierRecord } from "@/lib/types/dashboard";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 import {
   getEmailValidationError,
   getPhilippinePhoneValidationError,

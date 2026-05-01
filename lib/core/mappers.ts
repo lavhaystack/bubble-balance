@@ -2,7 +2,7 @@ import type {
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 
 type SupplierRow = {
   id: string;
@@ -33,7 +33,6 @@ type InventoryRow = {
   batch_id: string;
   expiration: string | null;
   archived_at: string | null;
-  reorder_level: number;
   supplier_product_id: string;
   created_at: string;
   updated_at: string;
@@ -159,7 +158,6 @@ export function mapInventoryRow(
     batchId: row.batch_id,
     expiration: row.expiration ?? "",
     archivedAt: row.archived_at,
-    reorderLevel: row.reorder_level,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -4,7 +4,7 @@ import type {
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 
 type ApiSuccess<T> = {
   ok: true;

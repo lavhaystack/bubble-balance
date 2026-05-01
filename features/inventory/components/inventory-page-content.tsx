@@ -12,17 +12,17 @@ import { type Product } from "./types";
 import { Button } from "@/components/ui/button";
 import { AddProductButton } from "@/components/dashboard/add-product-button";
 import { Input } from "@/components/ui/input";
-import { fetchInventoryStocks, fetchSuppliers } from "@/lib/dashboard-api";
+import { fetchInventoryStocks, fetchSuppliers } from "@/lib/api/dashboard";
 import {
   createInventoryStockCommand,
   deleteInventoryStockCommand,
   setInventoryStockArchivedCommand,
-} from "@/lib/dashboard-client-commands";
+} from "@/lib/core/client-commands";
 import type {
   InventoryStockRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
+} from "@/lib/types/dashboard";
+import { dashboardDataCache } from "@/lib/core/data-cache";
 import { filterInventoryProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 import PaginationControls from "@/components/shared/pagination-controls";
 import {
@@ -41,7 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 
 type InventoryTab = "active" | "archived";
 type ExpirationSortDirection = "asc" | "desc";

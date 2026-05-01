@@ -1,5 +1,5 @@
-import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
+import type { InventoryStockRecord } from "@/lib/types/dashboard";
 import {
   applyFilterStrategies,
   type FilterStrategy,

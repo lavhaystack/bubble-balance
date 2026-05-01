@@ -49,7 +49,6 @@ create table if not exists public.inventory_stocks (
   quantity integer not null check (quantity >= 0),
   batch_id text not null,
   expiration date null,
-  reorder_level integer not null default 10 check (reorder_level >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

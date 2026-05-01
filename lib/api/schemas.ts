@@ -65,7 +65,6 @@ export const createInventoryStockSchema = z.object({
   quantity: z.coerce.number().int().min(0),
   batchId: nonEmptyString.max(80),
   expiration: optionalDateString,
-  reorderLevel: z.coerce.number().int().min(0).default(10),
 });
 
 export const updateInventoryStockSchema = createInventoryStockSchema

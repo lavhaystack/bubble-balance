@@ -33,13 +33,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchInventoryStocks } from "@/lib/dashboard-api";
-import { confirmCheckoutCommand } from "@/lib/dashboard-client-commands";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
-import { formatPhpCurrency } from "@/lib/currency";
-import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import { fetchInventoryStocks } from "@/lib/api/dashboard";
+import { confirmCheckoutCommand } from "@/lib/core/client-commands";
+import { dashboardDataCache } from "@/lib/core/data-cache";
+import { formatPhpCurrency } from "@/lib/utils/currency";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
+import type { InventoryStockRecord } from "@/lib/types/dashboard";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 import { filterCheckoutProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 
 type CartLine = {
