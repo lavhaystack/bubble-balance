@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +69,7 @@ const statusStyles: Record<string, string> = {
 
 export default function CheckoutContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [products, setProducts] = useState<InventoryStockRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,7 @@ export default function CheckoutContent() {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const processedInventoryIdRef = useRef<string | null>(null);
 
   const loadProducts = useCallback(async (force = false) => {
     try {
@@ -279,8 +281,12 @@ export default function CheckoutContent() {
   };
 
   useEffect(() => {
+    if (loading) {
+      return;
+    }
+
     const inventoryId = searchParams.get("inventoryId");
-    if (!inventoryId) {
+    if (!inventoryId || processedInventoryIdRef.current === inventoryId) {
       return;
     }
 
@@ -291,8 +297,23 @@ export default function CheckoutContent() {
 
     if ((cartQuantityByInventoryId[inventoryId] ?? 0) === 0) {
       updateCartLine(inventoryId, 1);
+      processedInventoryIdRef.current = inventoryId;
+      toast.success(`${product.name} added to cart`);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("inventoryId");
+      router.replace(`/dashboard/checkout?${params.toString()}`, {
+        scroll: false,
+      });
     }
-  }, [cartQuantityByInventoryId, products, searchParams, updateCartLine]);
+  }, [
+    cartQuantityByInventoryId,
+    loading,
+    products,
+    router,
+    searchParams,
+    updateCartLine,
+  ]);
 
   const commitQuantityDraft = (item: CheckoutItem) => {
     const rawValue = quantityDrafts[item.inventoryId];
@@ -598,7 +619,7 @@ export default function CheckoutContent() {
                               </p>
                             )}
                           </div>
-                          <p className="max-w-[130px] text-right text-sm font-semibold leading-tight text-slate-800">
+                          <p className="max-w-[130px] break-words text-right text-sm font-semibold leading-tight text-slate-800">
                             {formatPhpCurrency(lineTotal)}
                           </p>
                         </div>
@@ -613,7 +634,7 @@ export default function CheckoutContent() {
                     </div>
                     <div className="mt-1 grid grid-cols-[1fr_auto] items-start gap-2 text-base font-bold text-slate-900">
                       <span className="whitespace-normal">Total Amount:</span>
-                      <span className="max-w-[150px] whitespace-normal text-right text-emerald-700">
+                      <span className="max-w-[150px] break-words whitespace-normal text-right text-emerald-700">
                         {formatPhpCurrency(totalAmount)}
                       </span>
                     </div>
@@ -655,7 +676,7 @@ export default function CheckoutContent() {
                 <p className="text-lg font-medium text-slate-900 sm:text-lg">
                   {item.name} x {item.quantity}
                 </p>
-                <p className="text-lg font-semibold text-slate-900 sm:text-2xl">
+                <p className="break-words text-right text-lg font-semibold text-slate-900 sm:text-2xl">
                   {formatPhpCurrency(item.quantity * item.price)}
                 </p>
               </div>
@@ -665,7 +686,7 @@ export default function CheckoutContent() {
           <div className="border-t border-slate-200 pt-4">
             <div className="flex items-center justify-between text-2xl font-semibold leading-none text-slate-900 sm:text-2xl">
               <span>Total:</span>
-              <span className="text-emerald-700">
+              <span className="break-words text-right text-emerald-700">
                 {formatPhpCurrency(totalAmount)}
               </span>
             </div>

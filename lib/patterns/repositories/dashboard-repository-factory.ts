@@ -21,6 +21,7 @@ import type {
   SupplierRecord,
   TopProductRecord,
 } from "@/lib/dashboard-types";
+import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
 import { AppError } from "@/lib/patterns/errors/app-error";
 
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
@@ -637,35 +638,31 @@ class SupabaseStatsRepository implements StatsRepository {
     // 3. Fetch current stock for these products
     const { data: inventoryData, error: inventoryError } = await this.supabase
       .from("inventory_stocks")
-      .select("supplier_product_id, quantity, reorder_level")
+      .select("id, supplier_product_id, quantity, reorder_level, supplier_products!inner(supplier_id)")
       .is("archived_at", null);
 
     if (inventoryError) {
       failFromSupabase(inventoryError, "Unable to fetch inventory stats");
     }
 
-    const stockMap: Record<string, { totalStock: number; minReorderLevel: number }> = {};
-    (inventoryData ?? []).forEach((inv) => {
+    const stockMap: Record<string, { totalStock: number; supplierId: string; inventoryId?: string }> = {};
+    (inventoryData ?? []).forEach((inv: any) => {
       const pid = inv.supplier_product_id;
+      const supplierId = inv.supplier_products?.supplier_id;
       if (!stockMap[pid]) {
-        stockMap[pid] = { totalStock: 0, minReorderLevel: inv.reorder_level };
+        stockMap[pid] = { totalStock: 0, supplierId };
       }
       stockMap[pid].totalStock += inv.quantity;
-      stockMap[pid].minReorderLevel = Math.min(
-        stockMap[pid].minReorderLevel,
-        inv.reorder_level,
-      );
+      // Pick the first available inventoryId that has stock for Quick Checkout
+      if (!stockMap[pid].inventoryId && inv.quantity > 0) {
+        stockMap[pid].inventoryId = inv.id;
+      }
     });
 
     const topProducts: TopProductRecord[] = Object.entries(productSoldMap)
       .map(([pid, data]) => {
-        const stockInfo = stockMap[pid] || { totalStock: 0, minReorderLevel: 0 };
-        let status = "In Stock";
-        if (stockInfo.totalStock === 0) {
-          status = "Out of Stock";
-        } else if (stockInfo.totalStock <= stockInfo.minReorderLevel) {
-          status = "Low Stock";
-        }
+        const stockInfo = stockMap[pid] || { totalStock: 0 };
+        const status = getStockStatusByQuantity(stockInfo.totalStock);
 
         return {
           name: data.name,
@@ -675,14 +672,20 @@ class SupabaseStatsRepository implements StatsRepository {
           price: data.price,
           totalValue: data.totalValue,
           status,
+          supplierId: stockInfo.supplierId,
+          supplierProductId: pid,
+          inventoryId: stockInfo.inventoryId,
         };
       })
       .sort((a, b) => b.sold - a.sold)
       .slice(0, 5); // Top 5
 
+    const totalInventoryItems = (inventoryData ?? []).length;
+    
     return {
       totalSales,
       unitsSold,
+      totalInventoryItems,
       topProducts,
     };
   }

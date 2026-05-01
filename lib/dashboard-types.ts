@@ -54,10 +54,14 @@ export type TopProductRecord = {
   price: number;
   totalValue: number;
   status: string;
+  supplierId: string;
+  supplierProductId: string;
+  inventoryId?: string;
 };
 
 export type DashboardStats = {
   totalSales: number;
   unitsSold: number;
+  totalInventoryItems: number;
   topProducts: TopProductRecord[];
 };
