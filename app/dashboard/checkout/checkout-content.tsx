@@ -190,7 +190,7 @@ export default function CheckoutContent() {
         return [];
       }
 
-      const quantity = Math.min(line.quantity, product.quantity);
+      const quantity = line.quantity;
       if (quantity <= 0) {
         return [];
       }
@@ -236,24 +236,22 @@ export default function CheckoutContent() {
     (inventoryId: string, requestedQuantity: number) => {
       setCart((currentCart) => {
         const product = products.find((entry) => entry.id === inventoryId);
-        if (!product || product.quantity <= 0 || requestedQuantity <= 0) {
+        if (!product || requestedQuantity <= 0) {
           clearQuantityDraft(inventoryId);
           return currentCart.filter((line) => line.inventoryId !== inventoryId);
         }
 
-        const cappedQuantity = Math.min(requestedQuantity, product.quantity);
+        const quantity = requestedQuantity;
         const existingLineIndex = currentCart.findIndex(
           (line) => line.inventoryId === inventoryId,
         );
 
         if (existingLineIndex === -1) {
-          return [...currentCart, { inventoryId, quantity: cappedQuantity }];
+          return [...currentCart, { inventoryId, quantity }];
         }
 
         return currentCart.map((line, index) =>
-          index === existingLineIndex
-            ? { ...line, quantity: cappedQuantity }
-            : line,
+          index === existingLineIndex ? { ...line, quantity } : line,
         );
       });
     },
@@ -318,8 +316,19 @@ export default function CheckoutContent() {
     clearQuantityDraft(item.inventoryId);
   };
 
+  const hasOverStockItems = useMemo(() => {
+    return checkoutItems.some((item) => {
+      const draftValue = quantityDrafts[item.inventoryId];
+      const currentQuantity =
+        draftValue !== undefined && draftValue !== ""
+          ? Number(draftValue)
+          : item.quantity;
+      return currentQuantity > item.available;
+    });
+  }, [checkoutItems, quantityDrafts]);
+
   const openConfirmModal = () => {
-    if (checkoutItems.length === 0) {
+    if (checkoutItems.length === 0 || hasOverStockItems) {
       return;
     }
     setConfirmOpen(true);
@@ -523,57 +532,71 @@ export default function CheckoutContent() {
                         </div>
 
                         <div className="mt-2 flex items-end justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                updateCartLine(
-                                  item.inventoryId,
-                                  item.quantity - 1,
-                                )
-                              }
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.available}
-                              value={
-                                quantityDrafts[item.inventoryId] ??
-                                `${item.quantity}`
-                              }
-                              onChange={(event) => {
-                                setQuantityDrafts((current) => ({
-                                  ...current,
-                                  [item.inventoryId]: event.target.value,
-                                }));
-                              }}
-                              onBlur={() => commitQuantityDraft(item)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.preventDefault();
-                                  commitQuantityDraft(item);
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  updateCartLine(
+                                    item.inventoryId,
+                                    item.quantity - 1,
+                                  )
                                 }
-                              }}
-                              className="h-8 w-20 text-center"
-                            />
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              disabled={!canIncrease}
-                              onClick={() =>
-                                updateCartLine(
-                                  item.inventoryId,
-                                  item.quantity + 1,
-                                )
-                              }
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={
+                                  quantityDrafts[item.inventoryId] ??
+                                  `${item.quantity}`
+                                }
+                                onChange={(event) => {
+                                  setQuantityDrafts((current) => ({
+                                    ...current,
+                                    [item.inventoryId]: event.target.value,
+                                  }));
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    commitQuantityDraft(item);
+                                  }
+                                }}
+                                onBlur={() => commitQuantityDraft(item)}
+                                className={`h-8 w-20 text-center ${
+                                  (quantityDrafts[item.inventoryId] !== undefined && quantityDrafts[item.inventoryId] !== ""
+                                    ? Number(quantityDrafts[item.inventoryId])
+                                    : item.quantity) > item.available
+                                    ? "border-rose-500 ring-rose-500 text-rose-600"
+                                    : ""
+                                }`}
+                              />
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                disabled={!canIncrease}
+                                onClick={() =>
+                                  updateCartLine(
+                                    item.inventoryId,
+                                    item.quantity + 1,
+                                  )
+                                }
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {(quantityDrafts[item.inventoryId] !== undefined && quantityDrafts[item.inventoryId] !== ""
+                              ? Number(quantityDrafts[item.inventoryId])
+                              : item.quantity) > item.available && (
+                              <p className="text-[10px] font-medium text-rose-500">
+                                Quantity must not exceed available stock
+                              </p>
+                            )}
                           </div>
                           <p className="max-w-[130px] text-right text-sm font-semibold leading-tight text-slate-800">
                             {formatPhpCurrency(lineTotal)}
@@ -598,7 +621,8 @@ export default function CheckoutContent() {
 
                   <Button
                     onClick={openConfirmModal}
-                    className="h-10 w-full bg-emerald-700 text-sm text-white hover:bg-emerald-800"
+                    disabled={hasOverStockItems || checkoutItems.length === 0}
+                    className="h-10 w-full bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-500"
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Complete Checkout
