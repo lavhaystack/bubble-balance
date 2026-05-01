@@ -175,7 +175,7 @@ export default function OverviewPage() {
                     <td className="py-4">
                       <span className="font-medium text-red-600">{item.name}</span>
                     </td>
-                    <td className="py-4 font-mono text-xs text-gray-400">{item.sku}</td>
+                    <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
                     <td className="py-4">
                       <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-orange-700">
                         Out of Stock
@@ -255,7 +255,7 @@ export default function OverviewPage() {
                         <span className="font-medium text-gray-900">{product.name}</span>
                       </div>
                     </td>
-                    <td className="py-4 font-mono text-xs text-gray-400">{product.sku}</td>
+                    <td className="py-4 font-mono text-xs text-gray-700">{product.sku}</td>
                     <td className="py-4 text-gray-900">{product.sold.toLocaleString()}</td>
                     <td className="py-4 text-gray-900">{product.stock.toLocaleString()}</td>
                     <td className="py-4 text-gray-900">
@@ -331,7 +331,7 @@ export default function OverviewPage() {
                     <td className="py-4">
                       <span className="font-medium text-gray-900">{item.name}</span>
                     </td>
-                    <td className="py-4 font-mono text-xs text-gray-400">{item.sku}</td>
+                    <td className="py-4 font-mono text-xs text-gray-700">{item.sku}</td>
                     <td className="py-4 text-gray-900">{item.quantity} {item.unit}</td>
                     <td className="py-4 text-gray-900">{item.reorderLevel}</td>
                     <td className="py-4 text-gray-900">{item.category}</td>
