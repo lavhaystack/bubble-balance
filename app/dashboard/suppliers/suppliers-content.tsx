@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import AddProductModal from "./components/AddProductModal";
-import SupplierTable from "./components/SupplierTable";
+import AddProductModal from "./components/supplier-product-modal";
+import SupplierTable from "./components/supplier-table";
 import PaginationControls from "@/components/shared/pagination-controls";
 import { Button } from "@/components/ui/button";
 import {

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import PageLoading from "@/app/dashboard/components/page-loading";
-import InventoryContent from "./inventory-content";
+import PageLoading from "@/components/dashboard/page-loading";
+import InventoryContent from "@/features/inventory/components/inventory-page-content";
 
 export default function InventoryPage() {
   return (

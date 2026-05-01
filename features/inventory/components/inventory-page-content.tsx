@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, Archive, Package2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import InventoryTable from "./components/InventoryTable";
-import AddProductModal from "./components/AddProductModal";
-import { type Product } from "./components/types";
+import InventoryTable from "./inventory-table";
+import AddProductModal from "./add-to-inventory-modal";
+import { type Product } from "./types";
 
 import { Button } from "@/components/ui/button";
 import { AddProductButton } from "@/components/dashboard/add-product-button";

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import PageLoading from "@/app/dashboard/components/page-loading";
+import PageLoading from "@/components/dashboard/page-loading";
 import SuppliersContent from "./suppliers-content";
 
 export default function SuppliersPage() {
