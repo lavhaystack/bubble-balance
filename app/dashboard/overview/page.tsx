@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDown, MoreVertical, Plus, ArrowRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchInventoryStocks, fetchDashboardStats } from "@/lib/dashboard-api";
 import type { InventoryStockRecord, DashboardStats } from "@/lib/dashboard-types";
 import { toast } from "sonner";
 import { formatPhpCurrency } from "@/lib/currency";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function OverviewPage() {
+  const router = useRouter();
   const [outOfStockItems, setOutOfStockItems] = useState<InventoryStockRecord[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryStockRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +87,10 @@ export default function OverviewPage() {
           <p className="text-sm text-gray-500">Track and manage inventory, sales and transactions</p>
         </div>
         <div className="flex gap-3">
-          <Button className="bg-emerald-700 text-white hover:bg-emerald-800">
+          <Button 
+            onClick={() => router.push("/dashboard/inventory?add=true")}
+            className="bg-emerald-700 text-white hover:bg-emerald-800"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add product
           </Button>
@@ -122,18 +133,19 @@ export default function OverviewPage() {
                 <th className="pb-4 font-medium">SKU</th>
                 <th className="pb-4 font-medium">Status</th>
                 <th className="pb-4 text-right font-medium">Price</th>
+                <th className="pb-4"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={3} className="py-8 text-center text-gray-400">
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : outOfStockItems.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-8 text-center text-gray-400">
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
                     No products out of stock
                   </td>
                 </tr>
@@ -151,6 +163,23 @@ export default function OverviewPage() {
                     </td>
                     <td className="py-4 text-right text-gray-900">
                       {mounted ? formatPhpCurrency(item.price) : `₱${item.price.toFixed(2)}`}
+                    </td>
+                    <td className="py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => router.push(`/dashboard/inventory?supplierId=${item.supplierId}&supplierProductId=${item.supplierProductId}`)}
+                            className="cursor-pointer"
+                          >
+                            Restock
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))

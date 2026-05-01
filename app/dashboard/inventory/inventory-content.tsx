@@ -134,10 +134,13 @@ export default function InventoryContent() {
   useEffect(() => {
     const supplierId = searchParams.get("supplierId") ?? "";
     const supplierProductId = searchParams.get("supplierProductId") ?? "";
+    const shouldAdd = searchParams.get("add") === "true";
 
     if (supplierId && supplierProductId) {
       setInitialSupplierId(supplierId);
       setInitialSupplierProductId(supplierProductId);
+      setShowModal(true);
+    } else if (shouldAdd) {
       setShowModal(true);
     }
   }, [searchParams]);
@@ -148,7 +151,8 @@ export default function InventoryContent() {
 
     if (
       searchParams.get("supplierId") ||
-      searchParams.get("supplierProductId")
+      searchParams.get("supplierProductId") ||
+      searchParams.get("add")
     ) {
       router.replace(INVENTORY_ROUTE);
     }
