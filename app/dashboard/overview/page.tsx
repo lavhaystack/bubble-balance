@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button";
 import { fetchInventoryStocks, fetchDashboardStats } from "@/lib/dashboard-api";
 import type { InventoryStockRecord, DashboardStats } from "@/lib/dashboard-types";
 import { toast } from "sonner";
+import { formatPhpCurrency } from "@/lib/currency";
 
 export default function OverviewPage() {
   const [outOfStockItems, setOutOfStockItems] = useState<InventoryStockRecord[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryStockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -44,7 +50,9 @@ export default function OverviewPage() {
   const stats = [
     {
       label: "Total sales",
-      value: `₱${(dashboardStats?.totalSales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: mounted 
+        ? formatPhpCurrency(dashboardStats?.totalSales ?? 0)
+        : "₱0.00",
       trend: null,
       trendType: null,
     },
@@ -142,7 +150,7 @@ export default function OverviewPage() {
                       </span>
                     </td>
                     <td className="py-4 text-right text-gray-900">
-                      ₱{item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {mounted ? formatPhpCurrency(item.price) : `₱${item.price.toFixed(2)}`}
                     </td>
                   </tr>
                 ))
@@ -202,10 +210,10 @@ export default function OverviewPage() {
                     <td className="py-4 text-gray-900">{product.sold.toLocaleString()}</td>
                     <td className="py-4 text-gray-900">{product.stock.toLocaleString()}</td>
                     <td className="py-4 text-gray-900">
-                      ₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {mounted ? formatPhpCurrency(product.price) : `₱${product.price.toFixed(2)}`}
                     </td>
                     <td className="py-4 text-gray-900">
-                      ₱{product.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {mounted ? formatPhpCurrency(product.totalValue) : `₱${product.totalValue.toFixed(2)}`}
                     </td>
                     <td className="py-4">
                       <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
