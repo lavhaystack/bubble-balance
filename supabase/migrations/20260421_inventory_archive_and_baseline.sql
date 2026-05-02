@@ -3,9 +3,19 @@
 alter table if exists public.inventory_stocks
   add column if not exists initial_quantity integer;
 
-update public.inventory_stocks
-set initial_quantity = quantity
-where initial_quantity is null;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' 
+    and table_name = 'inventory_stocks'
+  ) then
+    update public.inventory_stocks
+    set initial_quantity = quantity
+    where initial_quantity is null;
+  end if;
+end
+$$;
 
 alter table if exists public.inventory_stocks
   alter column initial_quantity set default 0;
@@ -20,7 +30,7 @@ begin
     from pg_constraint
     where conname = 'inventory_initial_quantity_non_negative'
   ) then
-    alter table public.inventory_stocks
+    alter table if exists public.inventory_stocks
       add constraint inventory_initial_quantity_non_negative
       check (initial_quantity >= 0);
   end if;
@@ -30,5 +40,15 @@ $$;
 alter table if exists public.inventory_stocks
   add column if not exists archived_at timestamptz null;
 
-create index if not exists inventory_stocks_archived_at_idx
-  on public.inventory_stocks (archived_at);
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' 
+    and table_name = 'inventory_stocks'
+  ) then
+    create index if not exists inventory_stocks_archived_at_idx
+      on public.inventory_stocks (archived_at);
+  end if;
+end
+$$;

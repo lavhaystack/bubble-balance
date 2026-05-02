@@ -196,7 +196,7 @@ export default function OverviewContent() {
       <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-gray-900">Out of stock</h2>
+            <h2 className="font-semibold text-gray-900">Out of Stock</h2>
             {totalOutOfStock > 5 && (
               <p className="text-sm text-gray-500">
                 (showing 5 out of {totalOutOfStock} out of stock products)

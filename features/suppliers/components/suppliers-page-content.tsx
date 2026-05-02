@@ -566,6 +566,7 @@ export default function SuppliersContent() {
                 value={form.name}
                 onChange={handleChange}
                 placeholder="e.g., Organic Essential Oils Co."
+                maxLength={80}
                 className={errors.name ? "border-red-600" : ""}
               />
               {errors.name && (
@@ -581,6 +582,7 @@ export default function SuppliersContent() {
                 value={form.contactPerson}
                 onChange={handleChange}
                 placeholder="e.g., Sarah Johnson"
+                maxLength={50}
                 className={errors.contactPerson ? "border-red-600" : ""}
               />
               {errors.contactPerson && (
@@ -596,6 +598,7 @@ export default function SuppliersContent() {
                 value={form.email}
                 onChange={handleChange}
                 placeholder="e.g., contact@supplier.com"
+                maxLength={320}
                 className={errors.email ? "border-red-600" : ""}
               />
               {errors.email && (
@@ -611,6 +614,7 @@ export default function SuppliersContent() {
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="e.g., +63 917 123 4567"
+                maxLength={20}
                 className={errors.phone ? "border-red-600" : ""}
               />
               {errors.phone && (
