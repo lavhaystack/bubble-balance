@@ -17,14 +17,14 @@ const items = [
     icon: Package,
   },
   {
-    label: "Suppliers",
-    href: "/dashboard/suppliers",
-    icon: Truck,
-  },
-  {
     label: "Checkout",
     href: "/dashboard/checkout",
     icon: ShoppingCart,
+  },
+  {
+    label: "Suppliers",
+    href: "/dashboard/suppliers",
+    icon: Truck,
   },
 ];
 

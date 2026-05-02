@@ -3,19 +3,22 @@ import type {
   CreateInventoryStockInput,
   CreateSupplierInput,
   CreateSupplierProductInput,
+  UpdateInventoryArchiveInput,
   UpdateSupplierInput,
   UpdateSupplierProductInput,
 } from "@/lib/api/schemas";
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 import type { Command } from "@/lib/patterns/commands/command";
 import type {
   CheckoutRepository,
   InventoryRepository,
+  StatsRepository,
   SupplierProductRepository,
   SupplierRepository,
 } from "@/lib/patterns/repositories/dashboard-repository-factory";
@@ -115,6 +118,18 @@ export class DeleteInventoryStockCommand implements Command<{ deleted: true }> {
   }
 }
 
+export class UpdateInventoryArchiveCommand implements Command<InventoryStockRecord> {
+  constructor(
+    private readonly repository: InventoryRepository,
+    private readonly id: string,
+    private readonly payload: UpdateInventoryArchiveInput,
+  ) {}
+
+  async execute() {
+    return this.repository.setArchived(this.id, this.payload);
+  }
+}
+
 export class ConfirmCheckoutCommand implements Command<CheckoutConfirmResult> {
   constructor(
     private readonly repository: CheckoutRepository,
@@ -123,5 +138,13 @@ export class ConfirmCheckoutCommand implements Command<CheckoutConfirmResult> {
 
   async execute() {
     return this.repository.confirm(this.payload);
+  }
+}
+
+export class FetchDashboardStatsCommand implements Command<DashboardStats> {
+  constructor(private readonly repository: StatsRepository) {}
+
+  async execute() {
+    return this.repository.getDashboardStats();
   }
 }

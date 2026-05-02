@@ -1,3 +1,11 @@
+import { Suspense } from "react";
+import PageLoading from "@/components/dashboard/page-loading";
+import OverviewContent from "@/features/overview/components/overview-page-content";
+
 export default function OverviewPage() {
-  return <div className="text-black">Overview Page</div>;
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <OverviewContent />
+    </Suspense>
+  );
 }
