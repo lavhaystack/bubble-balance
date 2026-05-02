@@ -48,7 +48,7 @@ export default function AddProductModal({
   submitLabel = "Save Product",
 }: AddProductModalProps) {
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => !isOpen && onClose()}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
