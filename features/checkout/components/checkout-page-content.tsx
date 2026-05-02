@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,13 +33,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchInventoryStocks } from "@/lib/dashboard-api";
-import { confirmCheckoutCommand } from "@/lib/dashboard-client-commands";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
-import { formatPhpCurrency } from "@/lib/currency";
-import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import { fetchInventoryStocks } from "@/lib/api/dashboard";
+import { confirmCheckoutCommand } from "@/lib/core/client-commands";
+import { dashboardDataCache } from "@/lib/core/data-cache";
+import { formatPhpCurrency } from "@/lib/utils/currency";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
+import type { InventoryStockRecord } from "@/lib/types/dashboard";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 import { filterCheckoutProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 
 type CartLine = {
@@ -69,6 +69,7 @@ const statusStyles: Record<string, string> = {
 
 export default function CheckoutContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [products, setProducts] = useState<InventoryStockRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,7 @@ export default function CheckoutContent() {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const processedInventoryIdRef = useRef<string | null>(null);
 
   const loadProducts = useCallback(async (force = false) => {
     try {
@@ -190,7 +192,7 @@ export default function CheckoutContent() {
         return [];
       }
 
-      const quantity = Math.min(line.quantity, product.quantity);
+      const quantity = line.quantity;
       if (quantity <= 0) {
         return [];
       }
@@ -236,24 +238,22 @@ export default function CheckoutContent() {
     (inventoryId: string, requestedQuantity: number) => {
       setCart((currentCart) => {
         const product = products.find((entry) => entry.id === inventoryId);
-        if (!product || product.quantity <= 0 || requestedQuantity <= 0) {
+        if (!product || requestedQuantity <= 0) {
           clearQuantityDraft(inventoryId);
           return currentCart.filter((line) => line.inventoryId !== inventoryId);
         }
 
-        const cappedQuantity = Math.min(requestedQuantity, product.quantity);
+        const quantity = requestedQuantity;
         const existingLineIndex = currentCart.findIndex(
           (line) => line.inventoryId === inventoryId,
         );
 
         if (existingLineIndex === -1) {
-          return [...currentCart, { inventoryId, quantity: cappedQuantity }];
+          return [...currentCart, { inventoryId, quantity }];
         }
 
         return currentCart.map((line, index) =>
-          index === existingLineIndex
-            ? { ...line, quantity: cappedQuantity }
-            : line,
+          index === existingLineIndex ? { ...line, quantity } : line,
         );
       });
     },
@@ -281,8 +281,12 @@ export default function CheckoutContent() {
   };
 
   useEffect(() => {
-    const inventoryId = searchParams?.get("inventoryId");
-    if (!inventoryId) {
+    if (loading) {
+      return;
+    }
+
+    const inventoryId = searchParams.get("inventoryId");
+    if (!inventoryId || processedInventoryIdRef.current === inventoryId) {
       return;
     }
 
@@ -293,8 +297,23 @@ export default function CheckoutContent() {
 
     if ((cartQuantityByInventoryId[inventoryId] ?? 0) === 0) {
       updateCartLine(inventoryId, 1);
+      processedInventoryIdRef.current = inventoryId;
+      toast.success(`${product.name} added to cart`);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("inventoryId");
+      router.replace(`/dashboard/checkout?${params.toString()}`, {
+        scroll: false,
+      });
     }
-  }, [cartQuantityByInventoryId, products, searchParams, updateCartLine]);
+  }, [
+    cartQuantityByInventoryId,
+    loading,
+    products,
+    router,
+    searchParams,
+    updateCartLine,
+  ]);
 
   const commitQuantityDraft = (item: CheckoutItem) => {
     const rawValue = quantityDrafts[item.inventoryId];
@@ -318,8 +337,19 @@ export default function CheckoutContent() {
     clearQuantityDraft(item.inventoryId);
   };
 
+  const hasOverStockItems = useMemo(() => {
+    return checkoutItems.some((item) => {
+      const draftValue = quantityDrafts[item.inventoryId];
+      const currentQuantity =
+        draftValue !== undefined && draftValue !== ""
+          ? Number(draftValue)
+          : item.quantity;
+      return currentQuantity > item.available;
+    });
+  }, [checkoutItems, quantityDrafts]);
+
   const openConfirmModal = () => {
-    if (checkoutItems.length === 0) {
+    if (checkoutItems.length === 0 || hasOverStockItems) {
       return;
     }
     setConfirmOpen(true);
@@ -358,7 +388,7 @@ export default function CheckoutContent() {
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
           Checkout
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {loading
             ? "Loading checkout products..."
             : "Select products to checkout from inventory"}
@@ -523,59 +553,73 @@ export default function CheckoutContent() {
                         </div>
 
                         <div className="mt-2 flex items-end justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                updateCartLine(
-                                  item.inventoryId,
-                                  item.quantity - 1,
-                                )
-                              }
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.available}
-                              value={
-                                quantityDrafts[item.inventoryId] ??
-                                `${item.quantity}`
-                              }
-                              onChange={(event) => {
-                                setQuantityDrafts((current) => ({
-                                  ...current,
-                                  [item.inventoryId]: event.target.value,
-                                }));
-                              }}
-                              onBlur={() => commitQuantityDraft(item)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.preventDefault();
-                                  commitQuantityDraft(item);
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  updateCartLine(
+                                    item.inventoryId,
+                                    item.quantity - 1,
+                                  )
                                 }
-                              }}
-                              className="h-8 w-20 text-center"
-                            />
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              disabled={!canIncrease}
-                              onClick={() =>
-                                updateCartLine(
-                                  item.inventoryId,
-                                  item.quantity + 1,
-                                )
-                              }
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={
+                                  quantityDrafts[item.inventoryId] ??
+                                  `${item.quantity}`
+                                }
+                                onChange={(event) => {
+                                  setQuantityDrafts((current) => ({
+                                    ...current,
+                                    [item.inventoryId]: event.target.value,
+                                  }));
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    commitQuantityDraft(item);
+                                  }
+                                }}
+                                onBlur={() => commitQuantityDraft(item)}
+                                className={`h-8 w-20 text-center ${
+                                  (quantityDrafts[item.inventoryId] !== undefined && quantityDrafts[item.inventoryId] !== ""
+                                    ? Number(quantityDrafts[item.inventoryId])
+                                    : item.quantity) > item.available
+                                    ? "border-rose-500 ring-rose-500 text-rose-600"
+                                    : ""
+                                }`}
+                              />
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                disabled={!canIncrease}
+                                onClick={() =>
+                                  updateCartLine(
+                                    item.inventoryId,
+                                    item.quantity + 1,
+                                  )
+                                }
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {(quantityDrafts[item.inventoryId] !== undefined && quantityDrafts[item.inventoryId] !== ""
+                              ? Number(quantityDrafts[item.inventoryId])
+                              : item.quantity) > item.available && (
+                              <p className="text-[10px] font-medium text-rose-500">
+                                Quantity must not exceed available stock
+                              </p>
+                            )}
                           </div>
-                          <p className="max-w-[130px] text-right text-sm font-semibold leading-tight text-slate-800">
+                          <p className="max-w-[130px] break-words text-right text-sm font-semibold leading-tight text-slate-800">
                             {formatPhpCurrency(lineTotal)}
                           </p>
                         </div>
@@ -590,7 +634,7 @@ export default function CheckoutContent() {
                     </div>
                     <div className="mt-1 grid grid-cols-[1fr_auto] items-start gap-2 text-base font-bold text-slate-900">
                       <span className="whitespace-normal">Total Amount:</span>
-                      <span className="max-w-[150px] whitespace-normal text-right text-emerald-700">
+                      <span className="max-w-[150px] break-words whitespace-normal text-right text-emerald-700">
                         {formatPhpCurrency(totalAmount)}
                       </span>
                     </div>
@@ -598,7 +642,8 @@ export default function CheckoutContent() {
 
                   <Button
                     onClick={openConfirmModal}
-                    className="h-10 w-full bg-emerald-700 text-sm text-white hover:bg-emerald-800"
+                    disabled={hasOverStockItems || checkoutItems.length === 0}
+                    className="h-10 w-full bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-500"
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Complete Checkout
@@ -631,7 +676,7 @@ export default function CheckoutContent() {
                 <p className="text-lg font-medium text-slate-900 sm:text-lg">
                   {item.name} x {item.quantity}
                 </p>
-                <p className="text-lg font-semibold text-slate-900 sm:text-2xl">
+                <p className="break-words text-right text-lg font-semibold text-slate-900 sm:text-2xl">
                   {formatPhpCurrency(item.quantity * item.price)}
                 </p>
               </div>
@@ -641,7 +686,7 @@ export default function CheckoutContent() {
           <div className="border-t border-slate-200 pt-4">
             <div className="flex items-center justify-between text-2xl font-semibold leading-none text-slate-900 sm:text-2xl">
               <span>Total:</span>
-              <span className="text-emerald-700">
+              <span className="break-words text-right text-emerald-700">
                 {formatPhpCurrency(totalAmount)}
               </span>
             </div>

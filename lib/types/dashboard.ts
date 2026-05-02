@@ -36,7 +36,6 @@ export type InventoryStockRecord = {
   batchId: string;
   expiration: string;
   archivedAt: string | null;
-  reorderLevel: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -45,4 +44,24 @@ export type CheckoutConfirmResult = {
   orderId: string;
   totalItems: number;
   totalAmount: number;
+};
+
+export type TopProductRecord = {
+  name: string;
+  sku: string;
+  sold: number;
+  stock: number;
+  price: number;
+  totalValue: number;
+  status: string;
+  supplierId: string;
+  supplierProductId: string;
+  inventoryId?: string;
+};
+
+export type DashboardStats = {
+  totalSales: number;
+  unitsSold: number;
+  totalInventoryItems: number;
+  topProducts: TopProductRecord[];
 };

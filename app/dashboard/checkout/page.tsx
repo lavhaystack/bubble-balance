@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import PageLoading from "@/app/dashboard/components/page-loading";
-import CheckoutContent from "./checkout-content";
+import PageLoading from "@/components/dashboard/page-loading";
+import CheckoutContent from "@/features/checkout/components/checkout-page-content";
 
 export default function CheckoutPage() {
   return (

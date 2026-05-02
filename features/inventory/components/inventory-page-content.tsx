@@ -2,26 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpDown, Archive, Package2, Plus, Search } from "lucide-react";
+import { ArrowUpDown, Archive, Package2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import InventoryTable from "./components/InventoryTable";
-import AddProductModal from "./components/AddProductModal";
-import { type Product } from "./components/types";
+import InventoryTable from "./inventory-table";
+import AddProductModal from "./add-to-inventory-modal";
+import { type Product } from "./types";
 
 import { Button } from "@/components/ui/button";
+import { AddProductButton } from "@/components/dashboard/add-product-button";
 import { Input } from "@/components/ui/input";
-import { fetchInventoryStocks, fetchSuppliers } from "@/lib/dashboard-api";
+import { fetchInventoryStocks, fetchSuppliers } from "@/lib/api/dashboard";
 import {
   createInventoryStockCommand,
   deleteInventoryStockCommand,
   setInventoryStockArchivedCommand,
-} from "@/lib/dashboard-client-commands";
+} from "@/lib/core/client-commands";
 import type {
   InventoryStockRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
+} from "@/lib/types/dashboard";
+import { dashboardDataCache } from "@/lib/core/data-cache";
 import { filterInventoryProducts } from "@/lib/patterns/strategies/dashboard-filter-strategies";
 import PaginationControls from "@/components/shared/pagination-controls";
 import {
@@ -40,7 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 
 type InventoryTab = "active" | "archived";
 type ExpirationSortDirection = "asc" | "desc";
@@ -83,7 +84,6 @@ export default function InventoryContent() {
     archivedAt: record.archivedAt,
     supplier: record.supplierName,
     batchId: record.batchId,
-    reorderLevel: record.reorderLevel,
   });
 
   const loadData = useCallback(async (force = false) => {
@@ -134,11 +134,19 @@ export default function InventoryContent() {
   useEffect(() => {
     const supplierId = searchParams.get("supplierId") ?? "";
     const supplierProductId = searchParams.get("supplierProductId") ?? "";
+    const shouldAdd = searchParams.get("add") === "true";
+    const statusParam = searchParams.get("status");
 
     if (supplierId && supplierProductId) {
       setInitialSupplierId(supplierId);
       setInitialSupplierProductId(supplierProductId);
       setShowModal(true);
+    } else if (shouldAdd) {
+      setShowModal(true);
+    }
+
+    if (statusParam) {
+      setStatusFilters([statusParam]);
     }
   }, [searchParams]);
 
@@ -148,7 +156,9 @@ export default function InventoryContent() {
 
     if (
       searchParams.get("supplierId") ||
-      searchParams.get("supplierProductId")
+      searchParams.get("supplierProductId") ||
+      searchParams.get("add") ||
+      searchParams.get("status")
     ) {
       router.replace(INVENTORY_ROUTE);
     }
@@ -177,7 +187,6 @@ export default function InventoryContent() {
     quantity: number;
     batchId: string;
     expiration?: string;
-    reorderLevel: number;
   }) => {
     try {
       await createInventoryStockCommand(payload).execute();
@@ -441,15 +450,12 @@ export default function InventoryContent() {
           Expiration {expirationSort === "asc" ? "Ascending" : "Descending"}
         </Button>
 
-        <Button
+        <AddProductButton
           onClick={() => {
             setShowModal(true);
           }}
-          className="bg-emerald-700 text-white hover:bg-emerald-800"
-        >
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Button>
+        />
+
       </div>
 
       <InventoryTable

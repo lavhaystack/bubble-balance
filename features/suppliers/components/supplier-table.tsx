@@ -19,9 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatPhpCurrency } from "@/lib/currency";
-import type { SupplierRecord } from "@/lib/dashboard-types";
-import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/pagination";
+import { formatPhpCurrency } from "@/lib/utils/currency";
+import type { SupplierRecord } from "@/lib/types/dashboard";
+import { PAGINATION_PAGE_SIZE, paginateItems } from "@/lib/utils/pagination";
 
 type SupplierTableProps = {
   rows: SupplierRecord[];

@@ -1,5 +1,5 @@
-import { getStockStatusByQuantity } from "@/lib/dashboard-stock";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
+import type { InventoryStockRecord } from "@/lib/types/dashboard";
 import {
   applyFilterStrategies,
   type FilterStrategy,
@@ -59,6 +59,15 @@ class CheckoutCategoryStrategy implements FilterStrategy<
     return items.filter(
       (product) => product.category === criteria.categoryFilter,
     );
+  }
+}
+
+class CheckoutInStockStrategy implements FilterStrategy<
+  InventoryStockRecord,
+  CheckoutFilterCriteria
+> {
+  apply(items: InventoryStockRecord[]) {
+    return items.filter((product) => product.quantity > 0);
   }
 }
 
@@ -151,7 +160,11 @@ class InventoryExpirationStrategy implements FilterStrategy<
 
 const checkoutStrategies: ReadonlyArray<
   FilterStrategy<InventoryStockRecord, CheckoutFilterCriteria>
-> = [new CheckoutSearchStrategy(), new CheckoutCategoryStrategy()];
+> = [
+  new CheckoutSearchStrategy(),
+  new CheckoutCategoryStrategy(),
+  new CheckoutInStockStrategy(),
+];
 
 const inventoryStrategyFactories: ReadonlyArray<
   (

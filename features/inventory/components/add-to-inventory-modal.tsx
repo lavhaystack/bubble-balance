@@ -25,9 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatPhpCurrency } from "@/lib/currency";
-import { buildSuggestedBatchId } from "@/lib/batch-id";
-import type { SupplierRecord } from "@/lib/dashboard-types";
+import { formatPhpCurrency } from "@/lib/utils/currency";
+import { buildSuggestedBatchId } from "@/lib/utils/batch-id";
+import type { SupplierRecord } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
 
 type AddProductModalProps = {
@@ -38,7 +38,6 @@ type AddProductModalProps = {
     quantity: number;
     batchId: string;
     expiration?: string;
-    reorderLevel: number;
   }) => void;
   suppliers: SupplierRecord[];
   initialSupplierId?: string;
@@ -51,7 +50,6 @@ type RequiredField =
   | "supplierProductId"
   | "quantity"
   | "batchId"
-  | "reorderLevel"
   | "expiration";
 
 type ProductFormState = {
@@ -59,7 +57,6 @@ type ProductFormState = {
   supplierProductId: string;
   quantity: string;
   batchId: string;
-  reorderLevel: string;
   expiration: string;
 };
 
@@ -68,7 +65,6 @@ const initialForm: ProductFormState = {
   supplierProductId: "",
   quantity: "0",
   batchId: "",
-  reorderLevel: "10",
   expiration: "",
 };
 
@@ -139,7 +135,7 @@ export default function AddProductModal({
       [name]: value,
     });
 
-    if (name === "quantity" || name === "reorderLevel" || name === "batchId") {
+    if (name === "quantity" || name === "batchId") {
       clearError(name);
     }
   };
@@ -154,7 +150,6 @@ export default function AddProductModal({
   const handleSubmit = () => {
     const nextErrors: Partial<Record<RequiredField, string>> = {};
     const quantity = Number(form.quantity);
-    const reorderLevel = Number(form.reorderLevel);
 
     if (!form.supplierId) {
       nextErrors.supplierId = "Supplier is required";
@@ -167,13 +162,6 @@ export default function AddProductModal({
     }
     if (!form.batchId.trim()) {
       nextErrors.batchId = "Batch ID is required";
-    }
-    if (
-      !form.reorderLevel.trim() ||
-      Number.isNaN(reorderLevel) ||
-      reorderLevel < 0
-    ) {
-      nextErrors.reorderLevel = "this field is required";
     }
 
     if (form.expiration) {
@@ -195,7 +183,6 @@ export default function AddProductModal({
       supplierProductId: form.supplierProductId,
       quantity,
       batchId: form.batchId.trim(),
-      reorderLevel,
       expiration: form.expiration || undefined,
     });
     handleClose();
@@ -357,7 +344,7 @@ export default function AddProductModal({
                   name="batchId"
                   value={form.batchId}
                   onChange={handleChange}
-                  placeholder="e.g., BATCH-2026-01"
+                  placeholder="e.g., BATCH-01"
                   className={errors.batchId ? "border-red-600" : ""}
                 />
                 {errors.batchId && (
@@ -373,22 +360,7 @@ export default function AddProductModal({
                   className="bg-muted text-muted-foreground"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="reorderLevel">Reorder Level *</Label>
-                <Input
-                  id="reorderLevel"
-                  name="reorderLevel"
-                  type="number"
-                  min={0}
-                  value={form.reorderLevel}
-                  onChange={handleChange}
-                  className={errors.reorderLevel ? "border-red-600" : ""}
-                />
-                {errors.reorderLevel && (
-                  <p className="text-xs text-red-600">{errors.reorderLevel}</p>
-                )}
-              </div>
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-1">
                 <Label htmlFor="price">Price (₱) *</Label>
                 <Input
                   id="price"

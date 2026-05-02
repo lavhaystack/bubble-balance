@@ -1,7 +1,7 @@
 import {
   getStockStatusForProduct,
   type StockStatus,
-} from "@/lib/dashboard-stock";
+} from "@/lib/utils/stock";
 
 export type { StockStatus };
 
@@ -19,7 +19,7 @@ export type Product = {
   archivedAt: string | null;
   supplier: string;
   batchId: string;
-  reorderLevel: number;
 };
+
 
 export const getStockStatus = getStockStatusForProduct;

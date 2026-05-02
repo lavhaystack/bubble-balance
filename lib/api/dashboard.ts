@@ -1,9 +1,10 @@
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 
 type ApiSuccess<T> = {
   ok: true;
@@ -76,7 +77,6 @@ export type CreateInventoryStockPayload = {
   quantity: number;
   batchId: string;
   expiration?: string;
-  reorderLevel: number;
 };
 
 export async function fetchSuppliers() {
@@ -179,4 +179,8 @@ export async function confirmCheckout(items: CheckoutLinePayload[]) {
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+export async function fetchDashboardStats() {
+  return request<DashboardStats>("/api/dashboard/stats");
 }

@@ -1,4 +1,4 @@
-import ProductRow from "./ProductRow";
+import ProductRow from "./product-row";
 import type { Product } from "./types";
 
 import { Card, CardContent } from "@/components/ui/card";

@@ -9,14 +9,16 @@ import type {
 } from "@/lib/api/schemas";
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+} from "@/lib/types/dashboard";
 import type { Command } from "@/lib/patterns/commands/command";
 import type {
   CheckoutRepository,
   InventoryRepository,
+  StatsRepository,
   SupplierProductRepository,
   SupplierRepository,
 } from "@/lib/patterns/repositories/dashboard-repository-factory";
@@ -136,5 +138,13 @@ export class ConfirmCheckoutCommand implements Command<CheckoutConfirmResult> {
 
   async execute() {
     return this.repository.confirm(this.payload);
+  }
+}
+
+export class FetchDashboardStatsCommand implements Command<DashboardStats> {
+  constructor(private readonly repository: StatsRepository) {}
+
+  async execute() {
+    return this.repository.getDashboardStats();
   }
 }

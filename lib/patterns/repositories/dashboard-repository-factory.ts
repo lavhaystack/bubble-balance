@@ -12,13 +12,16 @@ import {
   mapInventoryRow,
   mapSupplierProductRow,
   mapSupplierRows,
-} from "@/lib/dashboard-mappers";
+} from "@/lib/core/mappers";
 import type {
   CheckoutConfirmResult,
+  DashboardStats,
   InventoryStockRecord,
   SupplierProductRecord,
   SupplierRecord,
-} from "@/lib/dashboard-types";
+  TopProductRecord,
+} from "@/lib/types/dashboard";
+import { getStockStatusByQuantity } from "@/lib/utils/stock";
 import { AppError } from "@/lib/patterns/errors/app-error";
 
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
@@ -30,7 +33,7 @@ type SupabaseErrorLike = {
 };
 
 const INVENTORY_SELECT =
-  "id,quantity,initial_quantity,batch_id,expiration,archived_at,reorder_level,supplier_product_id,created_at,updated_at," +
+  "id,quantity,initial_quantity,batch_id,expiration,archived_at,supplier_product_id,created_at,updated_at," +
   "supplier_products!inner(id,supplier_id,name,sku,category,unit,price,suppliers!inner(id,name))";
 
 function failFromSupabase(
@@ -88,11 +91,16 @@ export interface CheckoutRepository {
   confirm(payload: CheckoutConfirmInput): Promise<CheckoutConfirmResult>;
 }
 
+export interface StatsRepository {
+  getDashboardStats(): Promise<DashboardStats>;
+}
+
 export interface DashboardRepositoryFactory {
   createSupplierRepository(): SupplierRepository;
   createSupplierProductRepository(): SupplierProductRepository;
   createInventoryRepository(): InventoryRepository;
   createCheckoutRepository(): CheckoutRepository;
+  createStatsRepository(): StatsRepository;
 }
 
 class SupabaseSupplierRepository implements SupplierRepository {
@@ -476,7 +484,6 @@ class SupabaseInventoryRepository implements InventoryRepository {
         initial_quantity: payload.quantity,
         batch_id: payload.batchId,
         expiration: payload.expiration ?? null,
-        reorder_level: payload.reorderLevel,
       })
       .select("id")
       .single()) as {
@@ -576,6 +583,113 @@ class SupabaseCheckoutRepository implements CheckoutRepository {
   }
 }
 
+class SupabaseStatsRepository implements StatsRepository {
+  constructor(private readonly supabase: SupabaseClientLike) {}
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    // 1. Fetch total sales and units sold
+    const { data: orderStats, error: orderError } = await this.supabase
+      .from("checkout_orders")
+      .select("total_amount, total_items");
+
+    if (orderError) {
+      failFromSupabase(orderError, "Unable to fetch order stats");
+    }
+
+    const totalSales = (orderStats ?? []).reduce(
+      (sum, order) => sum + Number(order.total_amount),
+      0,
+    );
+    const unitsSold = (orderStats ?? []).reduce(
+      (sum, order) => sum + Number(order.total_items),
+      0,
+    );
+
+    // 2. Fetch top products (sold quantity per product)
+    const { data: itemStats, error: itemError } = await this.supabase
+      .from("checkout_order_items")
+      .select("supplier_product_id, quantity, price, product_name, sku");
+
+    if (itemError) {
+      failFromSupabase(itemError, "Unable to fetch item stats");
+    }
+
+    // Group by supplier_product_id
+    const productSoldMap: Record<
+      string,
+      { sold: number; totalValue: number; name: string; sku: string; price: number }
+    > = {};
+    (itemStats ?? []).forEach((item) => {
+      const pid = item.supplier_product_id;
+      if (!productSoldMap[pid]) {
+        productSoldMap[pid] = {
+          sold: 0,
+          totalValue: 0,
+          name: item.product_name,
+          sku: item.sku,
+          price: Number(item.price),
+        };
+      }
+      productSoldMap[pid].sold += item.quantity;
+      productSoldMap[pid].totalValue += item.quantity * Number(item.price);
+    });
+
+    // 3. Fetch current stock for these products
+    const { data: inventoryData, error: inventoryError } = await this.supabase
+      .from("inventory_stocks")
+      .select("id, supplier_product_id, quantity, supplier_products!inner(supplier_id)")
+      .is("archived_at", null);
+
+    if (inventoryError) {
+      failFromSupabase(inventoryError, "Unable to fetch inventory stats");
+    }
+
+    const stockMap: Record<string, { totalStock: number; supplierId: string; inventoryId?: string }> = {};
+    (inventoryData ?? []).forEach((inv: any) => {
+      const pid = inv.supplier_product_id;
+      const supplierId = inv.supplier_products?.supplier_id;
+      if (!stockMap[pid]) {
+        stockMap[pid] = { totalStock: 0, supplierId };
+      }
+      stockMap[pid].totalStock += inv.quantity;
+      // Pick the first available inventoryId that has stock for Quick Checkout
+      if (!stockMap[pid].inventoryId && inv.quantity > 0) {
+        stockMap[pid].inventoryId = inv.id;
+      }
+    });
+
+    const topProducts: TopProductRecord[] = Object.entries(productSoldMap)
+      .map(([pid, data]) => {
+        const stockInfo = stockMap[pid] || { totalStock: 0 };
+        const status = getStockStatusByQuantity(stockInfo.totalStock);
+
+        return {
+          name: data.name,
+          sku: data.sku,
+          sold: data.sold,
+          stock: stockInfo.totalStock,
+          price: data.price,
+          totalValue: data.totalValue,
+          status,
+          supplierId: stockInfo.supplierId,
+          supplierProductId: pid,
+          inventoryId: stockInfo.inventoryId,
+        };
+      })
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5); // Top 5
+
+    const totalInventoryItems = (inventoryData ?? []).length;
+    
+    return {
+      totalSales,
+      unitsSold,
+      totalInventoryItems,
+      topProducts,
+    };
+  }
+}
+
 export class SupabaseDashboardRepositoryFactory implements DashboardRepositoryFactory {
   constructor(private readonly supabase: SupabaseClientLike) {}
 
@@ -593,5 +707,9 @@ export class SupabaseDashboardRepositoryFactory implements DashboardRepositoryFa
 
   createCheckoutRepository(): CheckoutRepository {
     return new SupabaseCheckoutRepository(this.supabase);
+  }
+
+  createStatsRepository(): StatsRepository {
+    return new SupabaseStatsRepository(this.supabase);
   }
 }

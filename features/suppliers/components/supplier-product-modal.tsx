@@ -48,7 +48,7 @@ export default function AddProductModal({
   submitLabel = "Save Product",
 }: AddProductModalProps) {
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => !isOpen && onClose()}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -64,6 +64,7 @@ export default function AddProductModal({
               value={form.name}
               onChange={onChange}
               placeholder="e.g., Lavender Essential Oil Soap"
+              maxLength={80}
               className={errors.name ? "border-red-600" : ""}
             />
             {errors.name && (
@@ -79,6 +80,7 @@ export default function AddProductModal({
               value={form.sku}
               onChange={onChange}
               placeholder="e.g., ESS-001"
+              maxLength={50}
               className={errors.sku ? "border-red-600" : ""}
             />
             {errors.sku && <p className="text-xs text-red-600">{errors.sku}</p>}
@@ -110,6 +112,7 @@ export default function AddProductModal({
                 name="unit"
                 value={form.unit}
                 onChange={onChange}
+                maxLength={60}
                 placeholder="bars"
               />
             </div>
@@ -122,6 +125,7 @@ export default function AddProductModal({
                 value={form.category}
                 onChange={onChange}
                 list="supplier-category-suggestions"
+                maxLength={80}
                 placeholder="e.g., Essential Oil"
               />
               <datalist id="supplier-category-suggestions">
