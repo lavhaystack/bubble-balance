@@ -137,7 +137,7 @@ async function mockInventoryApi(page: import("@playwright/test").Page) {
     await route.fallback();
   });
 
-  await page.route("**/api/inventory", async (route) => {
+  await page.route("**/api/inventory**", async (route) => {
     const method = route.request().method();
 
     if (method === "GET") {
@@ -151,7 +151,7 @@ async function mockInventoryApi(page: import("@playwright/test").Page) {
         quantity: number;
         batchId: string;
         expiration?: string;
-        reorderLevel: number;
+        reorderLevel?: number;
       };
 
       const sourceProduct = supplierProducts.find(
@@ -184,7 +184,7 @@ async function mockInventoryApi(page: import("@playwright/test").Page) {
         quantity: payload.quantity,
         batchId: payload.batchId,
         expiration: payload.expiration ?? "",
-        reorderLevel: payload.reorderLevel,
+        reorderLevel: payload.reorderLevel ?? 0,
         createdAt: now,
         updatedAt: now,
       };
@@ -239,9 +239,11 @@ test.describe("Inventory E2E", () => {
     await expect(page.getByText("Lemon Zest Soap")).toBeVisible();
     await expect(page.getByText("Lavender Bar")).not.toBeVisible();
 
-    const statusFilter = page.getByRole("combobox").nth(1);
+    const statusFilter = page.getByRole("button", {
+      name: /All Status|status selected/i,
+    });
     await statusFilter.click();
-    await page.getByRole("option", { name: "Low Stock" }).click();
+    await page.getByRole("menuitemcheckbox", { name: "Low Stock" }).click();
 
     await expect(page.getByText("1 of 2 products")).toBeVisible();
     await expect(page.getByText("Lemon Zest Soap")).toBeVisible();
@@ -258,8 +260,6 @@ test.describe("Inventory E2E", () => {
 
     await page.getByLabel("Quantity *").fill("27");
     await page.getByLabel("Batch ID *").fill("BATCH-LEM-777");
-    await page.getByLabel("Reorder Level *").fill("7");
-
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Add Product" })

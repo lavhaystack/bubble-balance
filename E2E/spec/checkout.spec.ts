@@ -91,7 +91,7 @@ async function mockCheckoutApi(
 		},
 	];
 
-	await page.route("**/api/inventory", async (route) => {
+	await page.route("**/api/inventory**", async (route) => {
 		if (route.request().method() !== "GET") {
 			await route.fallback();
 			return;
