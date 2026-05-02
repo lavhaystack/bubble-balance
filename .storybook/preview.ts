@@ -1,6 +1,11 @@
 import type { Preview } from "@storybook/nextjs-vite";
 import { ThemeProvider } from "next-themes";
 import { createElement } from "react";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import {
+  PathnameContext,
+  SearchParamsContext,
+} from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 
 import "../app/globals.css";
 
@@ -8,14 +13,36 @@ const preview: Preview = {
   decorators: [
     (Story) =>
       createElement(
-        ThemeProvider,
+        AppRouterContext.Provider,
         {
-          attribute: "class",
-          defaultTheme: "light",
-          enableSystem: false,
-          disableTransitionOnChange: true,
+          value: {
+            back: () => undefined,
+            forward: () => undefined,
+            refresh: () => undefined,
+            hmrRefresh: () => undefined,
+            push: () => undefined,
+            replace: () => undefined,
+            prefetch: async () => undefined,
+          },
         },
-        createElement(Story),
+        createElement(
+          PathnameContext.Provider,
+          { value: "/" },
+          createElement(
+            SearchParamsContext.Provider,
+            { value: new URLSearchParams() },
+            createElement(
+              ThemeProvider,
+              {
+                attribute: "class",
+                defaultTheme: "light",
+                enableSystem: false,
+                disableTransitionOnChange: true,
+              },
+              createElement(Story),
+            ),
+          ),
+        ),
       ),
   ],
   parameters: {

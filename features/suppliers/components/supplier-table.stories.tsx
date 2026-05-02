@@ -1,8 +1,10 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 
-import SupplierTable from "./SupplierTable";
-import type { SupplierRecord } from "@/lib/suppliers-store";
+import SupplierTable from "./supplier-table";
+import type { SupplierRecord } from "@/lib/types/dashboard";
+
+const createdAt = "2026-04-20T00:00:00.000Z";
 
 const rows: SupplierRecord[] = [
 	{
@@ -11,18 +13,30 @@ const rows: SupplierRecord[] = [
 		contactPerson: "Maya Reyes",
 		email: "maya@herbalco.com",
 		phone: "+63 917 200 1001",
+		createdAt,
+		updatedAt: createdAt,
 		products: [
 			{
+				id: "sp-lavender",
+				supplierId: "herbal-co",
 				name: "Lavender Soap",
+				sku: "LAVSOA-001",
 				price: 3.5,
 				category: "Bath & Body",
 				unit: "pcs",
+				createdAt,
+				updatedAt: createdAt,
 			},
 			{
+				id: "sp-tea-tree",
+				supplierId: "herbal-co",
 				name: "Tea Tree Soap",
+				sku: "TEASOA-001",
 				price: 4.25,
 				category: "Bath & Body",
 				unit: "pcs",
+				createdAt,
+				updatedAt: createdAt,
 			},
 		],
 	},
@@ -32,12 +46,19 @@ const rows: SupplierRecord[] = [
 		contactPerson: "Liam Cruz",
 		email: "liam@organicessentials.com",
 		phone: "+63 918 300 2002",
+		createdAt,
+		updatedAt: createdAt,
 		products: [
 			{
+				id: "sp-charcoal",
+				supplierId: "organic-essentials",
 				name: "Charcoal Detox Soap",
+				sku: "CHADET-001",
 				price: 4,
 				category: "Bath & Body",
 				unit: "pcs",
+				createdAt,
+				updatedAt: createdAt,
 			},
 		],
 	},
@@ -47,6 +68,8 @@ const rows: SupplierRecord[] = [
 		contactPerson: "Noah Santos",
 		email: "noah@farmfresh.com",
 		phone: "+63 919 400 3003",
+		createdAt,
+		updatedAt: createdAt,
 		products: [],
 	},
 ];
@@ -76,6 +99,8 @@ export const Collapsed: Story = {
 		onEditSupplier: () => undefined,
 		onRequestRemoveSupplier: () => undefined,
 		onEditSupplierProduct: () => undefined,
+		onAddProductToInventory: () => undefined,
+		onRequestRemoveSupplierProduct: () => undefined,
 	},
 };
 
@@ -90,6 +115,8 @@ export const FirstExpanded: Story = {
 		onEditSupplier: () => undefined,
 		onRequestRemoveSupplier: () => undefined,
 		onEditSupplierProduct: () => undefined,
+		onAddProductToInventory: () => undefined,
+		onRequestRemoveSupplierProduct: () => undefined,
 	},
 };
 
@@ -106,6 +133,8 @@ export const AllExpanded: Story = {
 		onEditSupplier: () => undefined,
 		onRequestRemoveSupplier: () => undefined,
 		onEditSupplierProduct: () => undefined,
+		onAddProductToInventory: () => undefined,
+		onRequestRemoveSupplierProduct: () => undefined,
 	},
 };
 
@@ -138,8 +167,18 @@ export const Interactive: Story = {
 				onRequestRemoveSupplier={(supplierId) => {
 					console.info("Remove supplier clicked", { supplierId });
 				}}
-				onEditSupplierProduct={(supplierId, productName) => {
-					console.info("Edit supplier product clicked", { supplierId, productName });
+				onEditSupplierProduct={(productId) => {
+					console.info("Edit supplier product clicked", { productId });
+				}}
+				onAddProductToInventory={(supplierId, productId) => {
+					console.info("Add product to inventory clicked", { supplierId, productId });
+				}}
+				onRequestRemoveSupplierProduct={(supplierId, productId, productName) => {
+					console.info("Remove supplier product clicked", {
+						supplierId,
+						productId,
+						productName,
+					});
 				}}
 			/>
 		);

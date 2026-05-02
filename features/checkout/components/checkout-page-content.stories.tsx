@@ -1,10 +1,10 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react";
 import { Toaster } from "sonner";
 
-import CheckoutPage from "./page";
-import type { CheckoutLinePayload } from "@/lib/dashboard-api";
-import type { InventoryStockRecord } from "@/lib/dashboard-types";
-import { dashboardDataCache } from "@/lib/dashboard-data-cache";
+import CheckoutPage from "./checkout-page-content";
+import type { CheckoutLinePayload } from "@/lib/api/dashboard";
+import type { InventoryStockRecord } from "@/lib/types/dashboard";
+import { dashboardDataCache } from "@/lib/core/data-cache";
 
 type MockApiOptions = {
 	inventory: InventoryStockRecord[];
@@ -31,7 +31,6 @@ const baseInventory: InventoryStockRecord[] = [
 		archivedAt: null,
 		batchId: "BATCH-2026-01",
 		expiration: "2027-01-15",
-		reorderLevel: 6,
 		createdAt,
 		updatedAt: createdAt,
 	},
@@ -50,7 +49,6 @@ const baseInventory: InventoryStockRecord[] = [
 		archivedAt: null,
 		batchId: "BATCH-2026-02",
 		expiration: "2026-11-10",
-		reorderLevel: 5,
 		createdAt,
 		updatedAt: createdAt,
 	},
@@ -69,7 +67,6 @@ const baseInventory: InventoryStockRecord[] = [
 		archivedAt: null,
 		batchId: "BATCH-2026-03",
 		expiration: "2026-09-01",
-		reorderLevel: 4,
 		createdAt,
 		updatedAt: createdAt,
 	},
@@ -88,7 +85,6 @@ const baseInventory: InventoryStockRecord[] = [
 		archivedAt: null,
 		batchId: "BATCH-2026-04",
 		expiration: "2027-03-20",
-		reorderLevel: 5,
 		createdAt,
 		updatedAt: createdAt,
 	},

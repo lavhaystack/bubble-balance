@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
-import AddProductModal from "./AddProductModal";
+import AddProductModal from "./supplier-product-modal";
 
 const meta: Meta<typeof AddProductModal> = {
-	title: "Suppliers/AddProductModal",
+	title: "Suppliers/SupplierProductModal",
 	component: AddProductModal,
 };
 
