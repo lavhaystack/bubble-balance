@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
-import AddProductModal from "./AddProductModal";
+import AddProductModal from "./supplier-product-modal";
 
 const meta: Meta<typeof AddProductModal> = {
-	title: "Suppliers/AddProductModal",
+	title: "Suppliers/SupplierProductModal",
 	component: AddProductModal,
 };
 
@@ -16,6 +16,7 @@ export const Default: Story = {
 		open: true,
 		form: {
 			name: "Lavender Essential Oil Soap",
+			sku: "LAVSOA-001",
 			price: "3.50",
 			category: "Bath & Body",
 			unit: "bars",
@@ -23,7 +24,9 @@ export const Default: Story = {
 		errors: {},
 		onClose: () => undefined,
 		onChange: () => undefined,
+		onPriceBlur: () => undefined,
 		onSave: () => undefined,
+		categorySuggestions: ["Bath & Body", "Essential Oils", "Herbal"],
 	},
 };
 
@@ -32,17 +35,21 @@ export const WithValidationErrors: Story = {
 		open: true,
 		form: {
 			name: "",
+			sku: "",
 			price: "",
 			category: "",
 			unit: "bars",
 		},
 		errors: {
 			name: "this field is required",
+			sku: "this field is required",
 			price: "this field is required",
 		},
 		onClose: () => undefined,
 		onChange: () => undefined,
+		onPriceBlur: () => undefined,
 		onSave: () => undefined,
+		categorySuggestions: ["Bath & Body", "Essential Oils", "Herbal"],
 	},
 };
 
@@ -54,6 +61,7 @@ export const EditMode: Story = {
 		submitLabel: "Save Changes",
 		form: {
 			name: "Charcoal Detox Soap",
+			sku: "CHADET-001",
 			price: "4.00",
 			category: "Bath & Body",
 			unit: "pcs",
@@ -61,6 +69,8 @@ export const EditMode: Story = {
 		errors: {},
 		onClose: () => undefined,
 		onChange: () => undefined,
+		onPriceBlur: () => undefined,
 		onSave: () => undefined,
+		categorySuggestions: ["Bath & Body", "Essential Oils", "Herbal"],
 	},
 };
