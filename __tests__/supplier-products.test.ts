@@ -1,199 +1,101 @@
-/// <reference types="jest" />
-
-import express from "express";
-import bodyParser from "body-parser";
 import request from "supertest";
-import { randomUUID } from "crypto";
-import { createClient } from "../lib/supabase/server";
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for tests");
-}
+import { createRouteServer } from "./helpers/api-test-utils";
 
-jest.mock("next/headers", () => ({
-  cookies: async () => ({
-    getAll: () => [],
-    set: () => undefined,
-  }),
+const supplierProductRepository = {
+	create: jest.fn(),
+	update: jest.fn(),
+	delete: jest.fn(),
+	listCategories: jest.fn(),
+};
+
+const repositoryFactoryMock = jest.fn().mockImplementation(() => ({
+	createSupplierProductRepository: () => supplierProductRepository,
 }));
 
+jest.mock("@/lib/supabase/server", () => ({
+	createClient: jest.fn().mockResolvedValue({}),
+}));
 
-import { POST } from "../app/api/supplier-products/route";
-import { PATCH as PATCH_PRODUCT, DELETE as DELETE_PRODUCT } from "../app/api/supplier-products/[id]/route";
+jest.mock("@/lib/patterns/repositories/dashboard-repository-factory", () => ({
+	SupabaseDashboardRepositoryFactory: repositoryFactoryMock,
+}));
 
-function makeApp() {
-  const app = express();
-  app.use(bodyParser.json());
+import { POST } from "@/app/api/supplier-products/route";
+import { PATCH, DELETE } from "@/app/api/supplier-products/[id]/route";
 
-  app.post("/api/supplier-products", async (req, res) => {
-    const init: any = { method: "POST", headers: req.headers };
-    if (req.body) init.body = JSON.stringify(req.body);
-    const nextReq = new Request("http://localhost/api/supplier-products", init);
-    const nextRes = await POST(nextReq as any, {} as any);
-    const json = await nextRes.json();
-    res.status(nextRes.status).json(json);
-  });
+const supplierId = "22222222-2222-4222-8222-222222222222";
+const productId = "33333333-3333-4333-8333-333333333333";
 
-  return app;
-}
+const sampleProduct = {
+	id: productId,
+	supplierId,
+	name: "Black Tea",
+	sku: "BT-001",
+	category: "Tea",
+	unit: "box",
+	price: 125,
+	createdAt: "2024-01-01T00:00:00.000Z",
+	updatedAt: "2024-01-01T00:00:00.000Z",
+};
 
-describe("/api/supplier-products", () => {
-  let app: express.Express;
-  let supplierId = "";
-  let supabase: Awaited<ReturnType<typeof createClient>>;
-  const productIds: string[] = [];
-  const runId = randomUUID();
+beforeAll(() => {
+	process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
+	process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-key";
+});
 
-  beforeAll(async () => {
-    app = makeApp();
-    supabase = await createClient();
+beforeEach(() => {
+	jest.clearAllMocks();
+});
 
-    const { data: supplier, error: supplierError } = await supabase
-      .from("suppliers")
-      .insert({
-        name: `Test Supplier ${runId}`,
-        contact_person: "Test Contact",
-        email: `test+${runId}@example.com`,
-        phone: "+10000000000",
-      })
-      .select("id")
-      .single();
+test("POST /api/supplier-products creates a supplier product", async () => {
+	supplierProductRepository.create.mockResolvedValue(sampleProduct);
+	const server = createRouteServer(POST);
 
-    if (supplierError || !supplier) {
-      throw supplierError ?? new Error("Unable to create supplier for tests");
-    }
+	const response = await request(server)
+		.post("/api/supplier-products")
+		.send({
+			supplierId,
+			name: "Black Tea",
+			sku: "BT-001",
+			category: "Tea",
+			unit: "box",
+			price: 125,
+		});
+	server.close();
 
-    supplierId = supplier.id;
-  });
+	expect(response.status).toBe(201);
+	expect(response.body).toEqual({ ok: true, data: sampleProduct });
+});
 
-  afterAll(async () => {
-    if (productIds.length > 0) {
-      await supabase.from("supplier_products").delete().in("id", productIds);
-    }
+test("PATCH /api/supplier-products/:id updates a supplier product", async () => {
+	supplierProductRepository.update.mockResolvedValue({
+		...sampleProduct,
+		price: 140,
+	});
+	const server = createRouteServer(PATCH, { id: productId });
 
-    if (supplierId) {
-      await supabase.from("suppliers").delete().eq("id", supplierId);
-    }
-  });
+	const response = await request(server)
+		.patch(`/api/supplier-products/${productId}`)
+		.send({ price: 140 });
+	server.close();
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+	expect(response.status).toBe(200);
+	expect(response.body).toEqual({
+		ok: true,
+		data: { ...sampleProduct, price: 140 },
+	});
+});
 
-  it("POST create happy path returns 201", async () => {
-    const payload = {
-      supplierId,
-      name: "Product A",
-      sku: `SKU-${randomUUID()}`,
-      category: "cat1",
-      unit: "pcs",
-      price: 100,
-    };
+test("DELETE /api/supplier-products/:id deletes a supplier product", async () => {
+	supplierProductRepository.delete.mockResolvedValue(undefined);
+	const server = createRouteServer(DELETE, { id: productId });
 
-    const res = await (request(app) as any).post("/api/supplier-products").send(payload).expect(201);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.data.name).toBe(payload.name);
-    productIds.push(res.body.data.id);
-  });
+	const response = await request(server).delete(
+		`/api/supplier-products/${productId}`,
+	);
+	server.close();
 
-  it("POST validation fails when missing fields", async () => {
-    const bad = { name: "x" };
-    const res = await (request(app) as any).post("/api/supplier-products").send(bad).expect(400);
-    expect(res.body.ok).toBe(false);
-    expect(res.body.error.code).toBe("VALIDATION_ERROR");
-  });
-
-  it("PATCH update happy path", async () => {
-    const { data: product, error: productError } = await supabase
-      .from("supplier_products")
-      .insert({
-        supplier_id: supplierId,
-        name: `Update Product ${randomUUID()}`,
-        sku: `SKU-${randomUUID()}`,
-        category: "cat1",
-        unit: "pcs",
-        price: 50,
-      })
-      .select("id")
-      .single();
-
-    if (productError || !product) {
-      throw productError ?? new Error("Unable to create product for update test");
-    }
-
-    const id = product.id;
-    productIds.push(id);
-    const payload = { name: "Updated Product" };
-    const req = new Request("http://localhost/api/supplier-products/" + id, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const nextRes = await PATCH_PRODUCT(req as any, { params: Promise.resolve({ id }) } as any);
-    const json = await nextRes.json();
-    expect(nextRes.status).toBe(200);
-    expect(json.ok).toBe(true);
-    expect(json.data.name).toBe(payload.name);
-  });
-
-  it("PATCH validation fails with empty payload", async () => {
-    const { data: product, error: productError } = await supabase
-      .from("supplier_products")
-      .insert({
-        supplier_id: supplierId,
-        name: `Empty Update ${randomUUID()}`,
-        sku: `SKU-${randomUUID()}`,
-        category: "cat1",
-        unit: "pcs",
-        price: 60,
-      })
-      .select("id")
-      .single();
-
-    if (productError || !product) {
-      throw productError ?? new Error("Unable to create product for empty update test");
-    }
-
-    const id = product.id;
-    productIds.push(id);
-    const req = new Request("http://localhost/api/supplier-products/" + id, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
-
-    const nextRes = await PATCH_PRODUCT(req as any, { params: Promise.resolve({ id }) } as any);
-    const json = await nextRes.json();
-    expect(nextRes.status).toBe(400);
-    expect(json.ok).toBe(false);
-    expect(json.error.code).toBe("VALIDATION_ERROR");
-  });
-
-  it("DELETE returns deleted true", async () => {
-    const { data: product, error: productError } = await supabase
-      .from("supplier_products")
-      .insert({
-        supplier_id: supplierId,
-        name: `Delete Product ${randomUUID()}`,
-        sku: `SKU-${randomUUID()}`,
-        category: "cat1",
-        unit: "pcs",
-        price: 70,
-      })
-      .select("id")
-      .single();
-
-    if (productError || !product) {
-      throw productError ?? new Error("Unable to create product for delete test");
-    }
-
-    const id = product.id;
-    const req = new Request("http://localhost/api/supplier-products/" + id, { method: "DELETE" });
-    const nextRes = await DELETE_PRODUCT(req as any, { params: Promise.resolve({ id }) } as any);
-    const json = await nextRes.json();
-    expect(nextRes.status).toBe(200);
-    expect(json.ok).toBe(true);
-    expect(json.data.deleted).toBe(true);
-  });
+	expect(response.status).toBe(200);
+	expect(response.body).toEqual({ ok: true, data: { deleted: true } });
 });

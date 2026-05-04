@@ -1,8 +1,8 @@
 /// <reference types="jest" />
 
-import bodyParser from "body-parser";
-import express from "express";
 import request from "supertest";
+
+import { createRouteServer } from "./helpers/api-test-utils";
 
 jest.mock("next/headers", () => ({
   cookies: async () => ({
@@ -20,30 +20,6 @@ type MockRpcResult = {
   data: unknown;
   error: { message: string; code?: string; details?: unknown } | null;
 };
-
-function makeApp(postHandler: CheckoutPostHandler) {
-  const app = express();
-  app.use(bodyParser.json());
-
-  app.post("/api/checkout/confirm", async (req, res) => {
-    const init: RequestInit = {
-      method: "POST",
-      headers: req.headers as HeadersInit,
-    };
-
-    if (req.body !== undefined) {
-      init.body = JSON.stringify(req.body);
-    }
-
-    const nextRequest = new Request("http://localhost/api/checkout/confirm", init);
-    const nextResponse = await postHandler(nextRequest, {});
-    const json = await nextResponse.json();
-
-    res.status(nextResponse.status).json(json);
-  });
-
-  return app;
-}
 
 function loadCheckoutRoute(options: {
   hasEnvVars?: boolean;
@@ -87,7 +63,7 @@ describe("/api/checkout/confirm", () => {
 
   it("happy path: confirms checkout and returns the computed totals", async () => {
     const { POST, rpc } = loadCheckoutRoute();
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
     const payload = {
       items: [
         { inventoryId: "0b7d8a6c-3e41-4d23-9d6b-c7d02b9d5e01", quantity: 2 },
@@ -95,10 +71,11 @@ describe("/api/checkout/confirm", () => {
       ],
     };
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send(payload)
       .expect(200);
+    server.close();
 
     expect(rpc).toHaveBeenCalledWith("confirm_checkout", {
       p_items: [
@@ -125,12 +102,13 @@ describe("/api/checkout/confirm", () => {
 
   it("sad path: returns env guard error when Supabase vars are missing", async () => {
     const { POST, rpc } = loadCheckoutRoute({ hasEnvVars: false });
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({ items: [] })
       .expect(503);
+    server.close();
 
     expect(rpc).not.toHaveBeenCalled();
     expect(response.body).toEqual({
@@ -144,12 +122,13 @@ describe("/api/checkout/confirm", () => {
 
   it("sad path: rejects when items is missing", async () => {
     const { POST } = loadCheckoutRoute();
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({})
       .expect(400);
+    server.close();
 
     expect(response.body.ok).toBe(false);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
@@ -157,12 +136,13 @@ describe("/api/checkout/confirm", () => {
 
   it("sad path: rejects when items array is empty", async () => {
     const { POST } = loadCheckoutRoute();
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({ items: [] })
       .expect(400);
+    server.close();
 
     expect(response.body.ok).toBe(false);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
@@ -170,9 +150,9 @@ describe("/api/checkout/confirm", () => {
 
   it("sad path: rejects an invalid checkout line", async () => {
     const { POST } = loadCheckoutRoute();
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({
         items: [
@@ -183,6 +163,7 @@ describe("/api/checkout/confirm", () => {
         ],
       })
       .expect(400);
+    server.close();
 
     expect(response.body.ok).toBe(false);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
@@ -198,9 +179,9 @@ describe("/api/checkout/confirm", () => {
         },
       },
     });
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({
         items: [
@@ -211,6 +192,7 @@ describe("/api/checkout/confirm", () => {
         ],
       })
       .expect(400);
+    server.close();
 
     expect(response.body).toEqual({
       ok: false,
@@ -228,9 +210,9 @@ describe("/api/checkout/confirm", () => {
         error: null,
       },
     });
-    const app = makeApp(POST);
+    const server = createRouteServer(POST);
 
-    const response = await request(app)
+    const response = await request(server)
       .post("/api/checkout/confirm")
       .send({
         items: [
@@ -241,6 +223,7 @@ describe("/api/checkout/confirm", () => {
         ],
       })
       .expect(500);
+    server.close();
 
     expect(response.body).toEqual({
       ok: false,

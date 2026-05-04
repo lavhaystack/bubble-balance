@@ -115,6 +115,11 @@ const checkoutMockState: {
 	installed: false,
 };
 
+type InventoryCacheState = {
+	reset: () => void;
+	inFlightPromise?: Promise<InventoryStockRecord[]> | null;
+};
+
 function ensureCheckoutFetchMockInstalled() {
 	if (checkoutMockState.installed) {
 		return;
@@ -233,7 +238,10 @@ function MockApiDecorator({
 	ensureCheckoutFetchMockInstalled();
 	checkoutMockState.options = options;
 	checkoutMockState.inventory = cloneInventory(options.inventory);
-	dashboardDataCache.inventory.reset();
+
+	const inventoryCache = dashboardDataCache.inventory as unknown as InventoryCacheState;
+	inventoryCache.reset();
+	inventoryCache.inFlightPromise = null;
 
 
 
