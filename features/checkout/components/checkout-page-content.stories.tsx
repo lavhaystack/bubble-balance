@@ -259,7 +259,7 @@ const withMockApi: Decorator = (Story, context) => {
 };
 
 const meta: Meta<typeof CheckoutPage> = {
-	title: "Checkout/Page",
+	title: "Checkout/PageContent",
 	component: CheckoutPage,
 	decorators: [withMockApi],
 	parameters: {
