@@ -10,7 +10,7 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Bubble Balance",
+  title: "BubbleBalance",
   description: "Soap Inventory Management System",
 };
 

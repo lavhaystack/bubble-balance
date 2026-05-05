@@ -44,7 +44,7 @@ export function DashboardSidebar() {
             className="h-10 w-10 shrink-0 object-contain"
             priority
           />
-          <h2 className="font-semibold text-gray-900">Bubble Balance</h2>
+          <h2 className="font-semibold text-gray-900">BubbleBalance</h2>
         </div>
       </div>
       <nav className="flex-1 p-4">
