@@ -10,7 +10,7 @@ import AddProductModal from "./add-to-inventory-modal";
 import { type Product } from "./types";
 
 import { Button } from "@/components/ui/button";
-import { AddProductButton } from "@/components/dashboard/add-product-button";
+import AddProductButton from "./add-product-button";
 import { Input } from "@/components/ui/input";
 import { fetchInventoryStocks, fetchSuppliers } from "@/lib/api/dashboard";
 import {

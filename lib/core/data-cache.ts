@@ -47,6 +47,16 @@ class ObservableResource<TData> {
     this.notify();
   }
 
+  reset() {
+    this.snapshot = {
+      data: null,
+      loading: false,
+      error: null,
+      loadedAt: 0,
+    };
+    this.notify();
+  }
+
   setData(data: TData) {
     this.snapshot = {
       data,

@@ -15,7 +15,7 @@ export function withErrorBoundary<TArgs extends unknown[]>(
     try {
       return await handler(...args);
     } catch (error) {
-      if (error instanceof ZodError) {
+        if (error instanceof ZodError) {
         return fromZodError(error);
       }
 
