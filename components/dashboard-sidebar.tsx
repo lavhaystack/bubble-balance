@@ -38,7 +38,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800">
             <Package className="h-5 w-5 text-white" />
           </div>
-          <h2 className="font-semibold text-gray-900">Blubble Balance</h2>
+          <h2 className="font-semibold text-gray-900">Bubble Balance</h2>
         </div>
       </div>
       <nav className="flex-1 p-4">
