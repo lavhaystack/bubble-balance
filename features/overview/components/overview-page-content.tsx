@@ -170,11 +170,15 @@ export default function OverviewContent() {
     <div className="space-y-8">
       <div>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            Overview
-          </h1>
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Overview
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              A summary of your inventory, sales, and top-performing products.
+            </p>
+          </div>
           <AddProductButton />
-
         </div>
       </div>
 

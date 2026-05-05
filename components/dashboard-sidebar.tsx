@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Package, ShoppingCart, Truck } from "lucide-react";
@@ -33,12 +34,17 @@ export function DashboardSidebar() {
 
   return (
     <aside className="w-full bg-white md:w-64 md:shrink-0 md:border-r md:border-gray-200">
-      <div className="border-b border-gray-200 p-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800">
-            <Package className="h-5 w-5 text-white" />
-          </div>
-          <h2 className="font-semibold text-gray-900">Blubble Balance</h2>
+      <div className="border-b border-gray-200 p-5">
+        <div className="flex items-center gap-1.5">
+          <Image
+            src="/icon.png"
+            alt="Bubble Balance logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 object-contain"
+            priority
+          />
+          <h2 className="font-semibold text-gray-900">BubbleBalance</h2>
         </div>
       </div>
       <nav className="flex-1 p-4">
